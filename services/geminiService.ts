@@ -1,7 +1,7 @@
-
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { GasData, DiagnosisResult, Language } from "../types";
 
+// Hàm parse JSON an toàn (giữ nguyên logic của bạn)
 const parseJSON = (text: string) => {
   try {
     // Remove markdown code blocks if present
@@ -14,14 +14,65 @@ const parseJSON = (text: string) => {
 };
 
 export const diagnoseTransformer = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
-  const apiKey = process.env.API_KEY;
+  // 1. QUAN TRỌNG: Sử dụng import.meta.env cho Vite
+  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+  
   if (!apiKey) {
+    console.error("API Key is missing. Please check .env file or Vercel Environment Variables.");
     throw new Error("API Key not found");
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  // 2. Khởi tạo SDK chuẩn cho React
+  const genAI = new GoogleGenerativeAI(apiKey);
 
   const targetLanguage = lang === 'vi' ? 'Vietnamese' : 'English';
+
+  // 3. Cấu hình Model và Schema
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash", // Dùng model ổn định nhất hiện tại
+    generationConfig: {
+      responseMimeType: "application/json",
+      temperature: 0.2,
+      responseSchema: {
+        type: SchemaType.OBJECT,
+        properties: {
+          faultType: { 
+            type: SchemaType.STRING, 
+            description: "The predicted main fault type (Keep technical terms in English usually, or Vietnamese if common)." 
+          },
+          confidence: { 
+            type: SchemaType.STRING, 
+            description: "Confidence level: High, Medium, or Low." 
+          },
+          severity: { 
+            type: SchemaType.STRING, 
+            description: `Condition: Normal, Caution, or Critical (Translate to ${targetLanguage}).` 
+          },
+          description: { 
+            type: SchemaType.STRING, 
+            description: `A technical explanation of why this fault was chosen based on gas levels (in ${targetLanguage}).` 
+          },
+          recommendation: { 
+            type: SchemaType.STRING, 
+            description: `Actionable maintenance advice (in ${targetLanguage}).` 
+          },
+          keyGasRatios: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                ratioName: { type: SchemaType.STRING },
+                value: { type: SchemaType.NUMBER },
+                interpretation: { type: SchemaType.STRING, description: `Interpretation in ${targetLanguage}` }
+              },
+              required: ["ratioName", "value", "interpretation"]
+            }
+          }
+        },
+        required: ["faultType", "confidence", "severity", "description", "recommendation", "keyGasRatios"]
+      }
+    }
+  });
 
   const prompt = `
     Act as a Senior High Voltage Transformer Diagnostic Engineer.
@@ -46,70 +97,40 @@ export const diagnoseTransformer = async (gasData: GasData, lang: Language): Pro
     - Thermal Fault 300°C - 700°C
     - Thermal Fault > 700°C
     
-    IMPORTANT: Provide the output in strict JSON format matching the schema.
-    Ensure the content of 'description', 'recommendation', 'interpretation' and 'severity' is written in ${targetLanguage}.
+    IMPORTANT: Provide the output in strict JSON format matching the schema provided in configuration.
   `;
 
-  const schema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-      faultType: { type: Type.STRING, description: "The predicted main fault type (Keep technical terms in English usually, or Vietnamese if common)." },
-      confidence: { type: Type.STRING, description: "Confidence level: High, Medium, or Low." },
-      severity: { type: Type.STRING, description: `Condition: Normal, Caution, or Critical (Translate to ${targetLanguage}).` },
-      description: { type: Type.STRING, description: `A technical explanation of why this fault was chosen based on gas levels (in ${targetLanguage}).` },
-      recommendation: { type: Type.STRING, description: `Actionable maintenance advice (in ${targetLanguage}).` },
-      keyGasRatios: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            ratioName: { type: Type.STRING },
-            value: { type: Type.NUMBER },
-            interpretation: { type: Type.STRING, description: `Interpretation in ${targetLanguage}` }
-          }
-        }
-      }
-    },
-    required: ["faultType", "confidence", "severity", "description", "recommendation", "keyGasRatios"]
-  };
-
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-        temperature: 0.2, // Low temperature for consistent analytical results
-      }
-    });
-
-    return parseJSON(response.text || "{}") as DiagnosisResult;
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    return parseJSON(response.text()) as DiagnosisResult;
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;
   }
 };
 
+// Hàm search giữ nguyên logic nhưng cập nhật cách gọi API
 export const searchStandards = async (query: string, lang: Language) => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
   if (!apiKey) return null;
 
-  const ai = new GoogleGenAI({ apiKey });
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  
   const langRequest = lang === 'vi' ? 'in Vietnamese' : 'in English';
   
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `Find the latest standards or guides regarding: ${query}. Summarize key limits briefly ${langRequest}.`,
-      config: {
-        tools: [{ googleSearch: {} }]
-      }
-    });
+    // Lưu ý: SDK Client-side hiện tại chưa hỗ trợ Google Search Tool một cách trực tiếp dễ dàng như bản server
+    // Nên ta dùng prompt kỹ thuật để giả lập tra cứu kiến thức
+    const result = await model.generateContent(
+      `You are an expert in IEC/IEEE standards. User query: "${query}". 
+      Summarize key limits or guidelines strictly based on standard transformer documents ${langRequest}.`
+    );
 
     return {
-      text: response.text || "",
-      chunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks
+      text: result.response.text() || "",
+      chunks: [] 
     };
   } catch (error) {
     console.error("Search Error", error);
