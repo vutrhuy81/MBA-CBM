@@ -1,0 +1,5 @@
+{
+  "name": "DGA Transformer Diagnostic",
+  "description": "An intelligent application for diagnosing transformer faults based on Dissolved Gas Analysis (DGA) using Gemini AI.",
+  "requestFramePermissions": []
+}
