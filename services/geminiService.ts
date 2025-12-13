@@ -20,10 +20,16 @@ export const diagnoseTransformer = async (gasData: GasData, lang: Language): Pro
   //}
 
   // 1. SỬA: Dùng import.meta.env cho Vite
-  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+  //const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
   
-  if (!apiKey) {
-    throw new Error("API Key not found. Please check .env file or Vercel Settings.");
+  //if (!apiKey) {
+  //  throw new Error("API Key not found. Please check .env file or Vercel Settings.");
+  //}
+  
+  const apiKey = getApiKey();
+  // Kiểm tra cơ bản xem user đã thay key chưa
+  if (!apiKey || apiKey === "AIzaSyABQg7OiicCs7ITFHinCoJtwn1HokhqN8o") {
+    throw new Error("API_KEY_NOT_CONFIGURED");
   }
   
   const ai = new GoogleGenAI({ apiKey });  
