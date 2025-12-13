@@ -14,12 +14,19 @@ const parseJSON = (text: string) => {
 };
 
 export const diagnoseTransformer = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API Key not found");
-  }
+  //const apiKey = process.env.API_KEY;
+  //if (!apiKey) {
+  //  throw new Error("API Key not found");
+  //}
 
-  const ai = new GoogleGenAI({ apiKey });
+  // 1. SỬA: Dùng import.meta.env cho Vite
+  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("API Key not found. Please check .env file or Vercel Settings.");
+  }
+  
+  const ai = new GoogleGenAI({ apiKey });  
 
   const targetLanguage = lang === 'vi' ? 'Vietnamese' : 'English';
 
