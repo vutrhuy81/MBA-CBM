@@ -15,7 +15,7 @@ const parseJSON = (text: string) => {
 
 export const diagnoseTransformer = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
   // 1. QUAN TRỌNG: Sử dụng import.meta.env cho Vite
-  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+  const apiKey = import.meta.env.VITE_API_KEY;
   
   if (!apiKey) {
     console.error("API Key is missing. Please check .env file or Vercel Environment Variables.");
@@ -112,7 +112,7 @@ export const diagnoseTransformer = async (gasData: GasData, lang: Language): Pro
 
 // Hàm search giữ nguyên logic nhưng cập nhật cách gọi API
 export const searchStandards = async (query: string, lang: Language) => {
-  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+  const apiKey = import.meta.env.VITE_API_KEY;
   if (!apiKey) return null;
 
   const genAI = new GoogleGenerativeAI(apiKey);
