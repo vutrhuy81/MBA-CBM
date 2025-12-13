@@ -4,7 +4,7 @@ import { GasData, DiagnosisResult, Language } from "../types";
 
 // ⚠️ CẤU HÌNH API KEY TẠI ĐÂY
 // Thay thế chuỗi bên dưới bằng API Key thực của bạn từ Google AI Studio
-const HARDCODED_API_KEY = "YOUR_GOOGLE_AI_STUDIO_API_KEY_HERE";
+const HARDCODED_API_KEY = "AIzaSyABQg7OiicCs7ITFHinCoJtwn1HokhqN8o";
 
 const getApiKey = (): string | undefined => {
   // Ưu tiên biến môi trường, nếu không có thì dùng key cứng
