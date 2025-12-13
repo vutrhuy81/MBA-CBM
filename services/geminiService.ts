@@ -1,9 +1,10 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+
+import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { GasData, DiagnosisResult, Language } from "../types";
 
-// Hàm parse JSON an toàn
 const parseJSON = (text: string) => {
   try {
+    // Remove markdown code blocks if present
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanText);
   } catch (e) {
@@ -13,50 +14,12 @@ const parseJSON = (text: string) => {
 };
 
 export const diagnoseTransformer = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
-  // 1. LẤY API KEY CHUẨN VITE
   const apiKey = import.meta.env.VITE_API_KEY;
-  
   if (!apiKey) {
-    throw new Error("API Key not found in environment variables");
+    throw new Error("API Key not found");
   }
 
-  // 2. KHỞI TẠO SDK
-  const genAI = new GoogleGenerativeAI(apiKey);
-
-  // 3. CẤU HÌNH MODEL (Sử dụng 'gemini-1.5-flash-latest' để tránh lỗi 404)
-  // Nếu vẫn lỗi, bạn hãy thử đổi dòng dưới thành "gemini-pro"
-  const modelName = "gemini-1.5-flash-latest"; 
-  
-  const model = genAI.getGenerativeModel({
-    model: modelName,
-    generationConfig: {
-      responseMimeType: "application/json",
-      temperature: 0.2,
-      responseSchema: {
-        type: SchemaType.OBJECT,
-        properties: {
-          faultType: { type: SchemaType.STRING },
-          confidence: { type: SchemaType.STRING },
-          severity: { type: SchemaType.STRING },
-          description: { type: SchemaType.STRING },
-          recommendation: { type: SchemaType.STRING },
-          keyGasRatios: {
-            type: SchemaType.ARRAY,
-            items: {
-              type: SchemaType.OBJECT,
-              properties: {
-                ratioName: { type: SchemaType.STRING },
-                value: { type: SchemaType.NUMBER },
-                interpretation: { type: SchemaType.STRING }
-              },
-              required: ["ratioName", "value", "interpretation"]
-            }
-          }
-        },
-        required: ["faultType", "confidence", "severity", "description", "recommendation", "keyGasRatios"]
-      }
-    }
-  });
+  const ai = new GoogleGenAI({ apiKey });
 
   const targetLanguage = lang === 'vi' ? 'Vietnamese' : 'English';
 
@@ -71,24 +34,59 @@ export const diagnoseTransformer = async (gasData: GasData, lang: Language): Pro
     - Ethylene (C2H4): ${gasData.C2H4} ppm
     - Acetylene (C2H2): ${gasData.C2H2} ppm
 
-    Possible Fault Types: Normal, Partial Discharge, Low Energy Discharge, High Energy Discharge, Mix Thermal & Discharge, Thermal Faults (T1, T2, T3).
+    Use standard methods like Rogers Ratio, IEC 60599, or Duval Triangle logic to determine the fault.
     
-    IMPORTANT: Provide the output in strict JSON format.
-    Ensure 'description', 'recommendation', 'interpretation' and 'severity' are written in ${targetLanguage}.
+    Possible Fault Types to consider:
+    - Normal
+    - Partial Discharge (Corona)
+    - Low Energy Discharge (Sparking)
+    - High Energy Discharge (Arcing)
+    - Mix Thermal & Discharge
+    - Thermal Fault < 300°C
+    - Thermal Fault 300°C - 700°C
+    - Thermal Fault > 700°C
+    
+    IMPORTANT: Provide the output in strict JSON format matching the schema.
+    Ensure the content of 'description', 'recommendation', 'interpretation' and 'severity' is written in ${targetLanguage}.
   `;
 
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      faultType: { type: Type.STRING, description: "The predicted main fault type (Keep technical terms in English usually, or Vietnamese if common)." },
+      confidence: { type: Type.STRING, description: "Confidence level: High, Medium, or Low." },
+      severity: { type: Type.STRING, description: `Condition: Normal, Caution, or Critical (Translate to ${targetLanguage}).` },
+      description: { type: Type.STRING, description: `A technical explanation of why this fault was chosen based on gas levels (in ${targetLanguage}).` },
+      recommendation: { type: Type.STRING, description: `Actionable maintenance advice (in ${targetLanguage}).` },
+      keyGasRatios: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            ratioName: { type: Type.STRING },
+            value: { type: Type.NUMBER },
+            interpretation: { type: Type.STRING, description: `Interpretation in ${targetLanguage}` }
+          }
+        }
+      }
+    },
+    required: ["faultType", "confidence", "severity", "description", "recommendation", "keyGasRatios"]
+  };
+
   try {
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    return parseJSON(response.text()) as DiagnosisResult;
-  } catch (error: any) {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: schema,
+        temperature: 0.2, // Low temperature for consistent analytical results
+      }
+    });
+
+    return parseJSON(response.text || "{}") as DiagnosisResult;
+  } catch (error) {
     console.error("Gemini API Error:", error);
-    
-    // Bắt lỗi 404 Model Not Found cụ thể để hướng dẫn sửa
-    if (error.message && error.message.includes("404") && error.message.includes("not found")) {
-        throw new Error(`Model '${modelName}' not found. Try changing model to 'gemini-pro' in geminiService.ts`);
-    }
-    
     throw error;
   }
 };
@@ -97,20 +95,21 @@ export const searchStandards = async (query: string, lang: Language) => {
   const apiKey = import.meta.env.VITE_API_KEY;
   if (!apiKey) return null;
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  // Dùng model cơ bản cho search
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
+  const ai = new GoogleGenAI({ apiKey });
   const langRequest = lang === 'vi' ? 'in Vietnamese' : 'in English';
   
   try {
-    const result = await model.generateContent(
-      `You are an expert in IEC/IEEE standards. User query: "${query}". 
-      Summarize key limits or guidelines strictly based on standard transformer documents ${langRequest}.`
-    );
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Find the latest standards or guides regarding: ${query}. Summarize key limits briefly ${langRequest}.`,
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+
     return {
-      text: result.response.text(),
-      chunks: [] 
+      text: response.text || "",
+      chunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks
     };
   } catch (error) {
     console.error("Search Error", error);
