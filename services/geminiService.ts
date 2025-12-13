@@ -2,6 +2,15 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { GasData, DiagnosisResult, Language } from "../types";
 
+// ⚠️ CẤU HÌNH API KEY TẠI ĐÂY
+// Thay thế chuỗi bên dưới bằng API Key thực của bạn từ Google AI Studio
+const HARDCODED_API_KEY = "YOUR_GOOGLE_AI_STUDIO_API_KEY_HERE";
+
+const getApiKey = (): string | undefined => {
+  // Ưu tiên biến môi trường, nếu không có thì dùng key cứng
+  return process.env.API_KEY || HARDCODED_API_KEY;
+};
+
 const parseJSON = (text: string) => {
   try {
     // Remove markdown code blocks if present
@@ -14,25 +23,14 @@ const parseJSON = (text: string) => {
 };
 
 export const diagnoseTransformer = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
-  //const apiKey = process.env.API_KEY;
-  //if (!apiKey) {
-  //  throw new Error("API Key not found");
-  //}
-
-  // 1. SỬA: Dùng import.meta.env cho Vite
-  //const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
-  
-  //if (!apiKey) {
-  //  throw new Error("API Key not found. Please check .env file or Vercel Settings.");
-  //}
-  
   const apiKey = getApiKey();
+  
   // Kiểm tra cơ bản xem user đã thay key chưa
   if (!apiKey || apiKey === "AIzaSyABQg7OiicCs7ITFHinCoJtwn1HokhqN8o") {
     throw new Error("API_KEY_NOT_CONFIGURED");
   }
-  
-  const ai = new GoogleGenAI({ apiKey });  
+
+  const ai = new GoogleGenAI({ apiKey });
 
   const targetLanguage = lang === 'vi' ? 'Vietnamese' : 'English';
 
@@ -105,8 +103,8 @@ export const diagnoseTransformer = async (gasData: GasData, lang: Language): Pro
 };
 
 export const searchStandards = async (query: string, lang: Language) => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return null;
+  const apiKey = getApiKey();
+  if (!apiKey || apiKey === "YOUR_GOOGLE_AI_STUDIO_API_KEY_HERE") return null;
 
   const ai = new GoogleGenAI({ apiKey });
   const langRequest = lang === 'vi' ? 'in Vietnamese' : 'in English';
