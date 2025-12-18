@@ -8,7 +8,8 @@ const getApiKey = (): string | undefined => {
   if (localKey && localKey.trim() !== '') {
     return localKey;
   }
-  return process.env.API_KEY;
+  return import.meta.env.VITE_API_KEY; //process.env.API_KEY;
+  
 };
 
 const parseJSON = (text: string) => {
