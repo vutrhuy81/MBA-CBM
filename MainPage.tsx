@@ -1,16 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { GasData, DiagnosisResult, Language, ModelType, HealthIndexResult } from './types';
+import { GasData, DiagnosisResult, Language, ModelType, HealthIndexResult, TabType } from './types';
 import GasInput from './components/GasInput';
 import DiagnosisView from './components/DiagnosisView';
 import HealthIndexView from './components/HealthIndexView';
+import ManualView from './components/ManualView';
 import { diagnoseTransformer } from './services/geminiService';
 import { diagnoseWithProposedModel, mapApiResponseToDiagnosis, mapFastTreeResponseToDiagnosis } from './services/proposedModelService';
 import { calculateHealthIndex } from './services/healthIndexService';
 import { translations } from './constants/translations';
 import { getDuval1Analysis, getDuvalPentagonAnalysis } from './utils/duvalMath';
-
-type TabType = 'gemini' | 'proposed' | 'health';
 
 interface DiagnosisHistoryItem {
   gas: GasData;
@@ -146,6 +145,18 @@ const MainPage: React.FC<MainPageProps> = ({ user, onLogout }) => {
 
   const isCorsError = error?.includes("CORS") || error?.includes("Network Error") || error?.includes("Failed to fetch");
 
+  const getIntro = () => {
+      switch(activeTab) {
+          case 'gemini': return { title: t.introGemini, desc: t.introGeminiDesc };
+          case 'proposed': return { title: t.introProposed, desc: t.introProposedDesc };
+          case 'health': return { title: t.introHealth, desc: t.introHealthDesc };
+          case 'manual': return { title: t.introManual, desc: t.introManualDesc };
+          default: return { title: '', desc: '' };
+      }
+  };
+
+  const intro = getIntro();
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 pb-20 font-sans animate-fade-in">
       <header className="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-50 backdrop-blur-md">
@@ -172,10 +183,11 @@ const MainPage: React.FC<MainPageProps> = ({ user, onLogout }) => {
                 <button onClick={() => setLang('vi')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${lang === 'vi' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}>VN</button>
                 <button onClick={() => setLang('en')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${lang === 'en' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}>EN</button>
             </div>
-            <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
-                <button onClick={() => setActiveTab('gemini')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'gemini' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>{t.geminiTab}</button>
-                <button onClick={() => setActiveTab('proposed')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'proposed' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>{t.proposedTab}</button>
-                <button onClick={() => setActiveTab('health')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'health' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>{t.healthIndexTab}</button>
+            <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700 overflow-x-auto">
+                <button onClick={() => setActiveTab('gemini')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'gemini' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>{t.geminiTab}</button>
+                <button onClick={() => setActiveTab('proposed')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'proposed' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>{t.proposedTab}</button>
+                <button onClick={() => setActiveTab('health')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'health' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>{t.healthIndexTab}</button>
+                <button onClick={() => setActiveTab('manual')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'manual' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>{t.manualTab}</button>
             </div>
             <button 
                 onClick={onLogout}
@@ -193,51 +205,52 @@ const MainPage: React.FC<MainPageProps> = ({ user, onLogout }) => {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex flex-col gap-8">
           <div className="text-center max-w-2xl mx-auto mb-4">
-            <h2 className="text-3xl font-bold text-white mb-2">
-              {activeTab === 'gemini' ? t.introGemini : (activeTab === 'proposed' ? t.introProposed : t.introHealth)}
-            </h2>
-            <p className="text-slate-400">
-              {activeTab === 'gemini' ? t.introGeminiDesc : (activeTab === 'proposed' ? t.introProposedDesc : t.introHealthDesc)}
-            </p>
+            <h2 className="text-3xl font-bold text-white mb-2">{intro.title}</h2>
+            <p className="text-slate-400">{intro.desc}</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-4">
-              <GasInput 
-                gasData={gasData} setGasData={setGasData} onDiagnose={handleDiagnose}
-                loading={loading} activeTab={activeTab} lang={lang}
-                selectedModel={selectedModel} onSelectModel={setSelectedModel}
-              />
-              {activeTab === 'proposed' && history.length > 0 && (
-                <button onClick={handleDownloadCsv} className="w-full mt-4 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm flex items-center justify-center gap-2 border border-slate-600 shadow-lg transition-all">
-                    Lưu file chandoan.csv ({history.length} dòng)
-                </button>
-              )}
-            </div>
-
-            <div className="lg:col-span-8">
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-xl mb-4 animate-shake">
-                  <p className="font-bold">{t.error}: {error}</p>
-                  {isCorsError && (
-                    <button onClick={handleSimulateSuccess} className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition text-xs font-bold">
-                        {t.simulateSuccess}
+          {activeTab === 'manual' ? (
+              <ManualView lang={lang} />
+          ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-4">
+                  {/* Fix: Passed activeTab directly as it is narrowed to compatible types within this branch, avoiding redundant comparison warnings. */}
+                  <GasInput 
+                    gasData={gasData} setGasData={setGasData} onDiagnose={handleDiagnose}
+                    loading={loading} activeTab={activeTab} lang={lang}
+                    selectedModel={selectedModel} onSelectModel={setSelectedModel}
+                  />
+                  {activeTab === 'proposed' && history.length > 0 && (
+                    <button onClick={handleDownloadCsv} className="w-full mt-4 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm flex items-center justify-center gap-2 border border-slate-600 shadow-lg transition-all">
+                        Lưu file chandoan.csv ({history.length} dòng)
                     </button>
                   )}
                 </div>
-              )}
-              {!result && !healthResult && !loading && !error && (
-                <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-500 bg-slate-800/30 rounded-2xl border-2 border-dashed border-slate-700">
-                  <p className="text-lg font-medium">{t.awaitingData}</p>
+
+                <div className="lg:col-span-8">
+                  {error && (
+                    <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-xl mb-4 animate-shake">
+                      <p className="font-bold">{t.error}: {error}</p>
+                      {isCorsError && (
+                        <button onClick={handleSimulateSuccess} className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition text-xs font-bold">
+                            {t.simulateSuccess}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {!result && !healthResult && !loading && !error && (
+                    <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-500 bg-slate-800/30 rounded-2xl border-2 border-dashed border-slate-700">
+                      <p className="text-lg font-medium">{t.awaitingData}</p>
+                    </div>
+                  )}
+                  {activeTab === 'health' ? (
+                      <HealthIndexView result={healthResult} lang={lang} />
+                  ) : (
+                      <DiagnosisView result={result} gasData={gasData} lang={lang} activeTab={activeTab === 'proposed' ? 'proposed' : 'gemini'} />
+                  )}
                 </div>
-              )}
-              {activeTab === 'health' ? (
-                  <HealthIndexView result={healthResult} lang={lang} />
-              ) : (
-                  <DiagnosisView result={result} gasData={gasData} lang={lang} activeTab={activeTab === 'proposed' ? 'proposed' : 'gemini'} />
-              )}
-            </div>
-          </div>
+              </div>
+          )}
         </div>
       </main>
     </div>
