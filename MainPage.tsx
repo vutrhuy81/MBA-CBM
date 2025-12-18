@@ -10,6 +10,7 @@ import { diagnoseWithProposedModel, mapApiResponseToDiagnosis, mapFastTreeRespon
 import { calculateHealthIndex } from './services/healthIndexService';
 import { translations } from './constants/translations';
 import { getDuval1Analysis, getDuvalPentagonAnalysis } from './utils/duvalMath';
+import { UserRole } from './components/LoginPage';
 
 interface DiagnosisHistoryItem {
   gas: GasData;
@@ -21,11 +22,15 @@ interface DiagnosisHistoryItem {
 
 interface MainPageProps {
   user: string;
+  role: UserRole;
   onLogout: () => void;
 }
 
-const MainPage: React.FC<MainPageProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('gemini');
+const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
+  const isGuest = role === 'Guest';
+  
+  // Default to 'proposed' if user is guest, otherwise 'gemini'
+  const [activeTab, setActiveTab] = useState<TabType>(isGuest ? 'proposed' : 'gemini');
   const [lang, setLang] = useState<Language>('vi'); 
   const [selectedModel, setSelectedModel] = useState<ModelType>('gbdt');
 
@@ -50,6 +55,13 @@ const MainPage: React.FC<MainPageProps> = ({ user, onLogout }) => {
 
   const t = translations[lang];
 
+  // Prevent accessing Gemini if guest (in case of state manipulation)
+  useEffect(() => {
+    if (isGuest && activeTab === 'gemini') {
+        setActiveTab('proposed');
+    }
+  }, [isGuest, activeTab]);
+
   const addToHistory = (gas: GasData, diagResult: DiagnosisResult) => {
     const duvalT = getDuval1Analysis(gas).zone;
     const duvalP = getDuvalPentagonAnalysis(gas);
@@ -66,6 +78,8 @@ const MainPage: React.FC<MainPageProps> = ({ user, onLogout }) => {
   };
 
   const handleDiagnose = async () => {
+    if (activeTab === 'gemini' && isGuest) return;
+
     setLoading(true);
     setError(null);
     setResult(null); 
@@ -171,9 +185,14 @@ const MainPage: React.FC<MainPageProps> = ({ user, onLogout }) => {
               <h1 className="text-xl font-bold text-white tracking-tight">{t.appTitle}</h1>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-slate-400 font-medium">{t.appSubtitle}</p>
-                <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-emerald-400 font-bold uppercase">
-                   User: {user}
-                </span>
+                <div className="flex gap-1">
+                    <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-emerald-400 font-bold uppercase">
+                    U: {user}
+                    </span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded border font-bold uppercase ${isGuest ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-blue-600/20 border-blue-500/50 text-blue-400'}`}>
+                    R: {isGuest ? t.roleGuest : t.roleAdmin}
+                    </span>
+                </div>
               </div>
             </div>
           </div>
@@ -184,7 +203,9 @@ const MainPage: React.FC<MainPageProps> = ({ user, onLogout }) => {
                 <button onClick={() => setLang('en')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${lang === 'en' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}>EN</button>
             </div>
             <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700 overflow-x-auto">
-                <button onClick={() => setActiveTab('gemini')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'gemini' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>{t.geminiTab}</button>
+                {!isGuest && (
+                    <button onClick={() => setActiveTab('gemini')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'gemini' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>{t.geminiTab}</button>
+                )}
                 <button onClick={() => setActiveTab('proposed')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'proposed' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>{t.proposedTab}</button>
                 <button onClick={() => setActiveTab('health')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'health' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>{t.healthIndexTab}</button>
                 <button onClick={() => setActiveTab('manual')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'manual' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>{t.manualTab}</button>
@@ -214,12 +235,19 @@ const MainPage: React.FC<MainPageProps> = ({ user, onLogout }) => {
           ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-4">
-                  {/* Fix: Passed activeTab directly as it is narrowed to compatible types within this branch, avoiding redundant comparison warnings. */}
-                  <GasInput 
-                    gasData={gasData} setGasData={setGasData} onDiagnose={handleDiagnose}
-                    loading={loading} activeTab={activeTab} lang={lang}
-                    selectedModel={selectedModel} onSelectModel={setSelectedModel}
-                  />
+                  {/* Handle the case where guest tries to see input for gemini (though tab is hidden) */}
+                  {activeTab === 'gemini' && isGuest ? (
+                      <div className="bg-red-500/10 border border-red-500/50 p-6 rounded-2xl text-center">
+                          <h3 className="text-red-400 font-bold mb-2">{t.accessDenied}</h3>
+                          <p className="text-xs text-slate-400">{t.accessDeniedDesc}</p>
+                      </div>
+                  ) : (
+                    <GasInput 
+                        gasData={gasData} setGasData={setGasData} onDiagnose={handleDiagnose}
+                        loading={loading} activeTab={activeTab} lang={lang}
+                        selectedModel={selectedModel} onSelectModel={setSelectedModel}
+                    />
+                  )}
                   {activeTab === 'proposed' && history.length > 0 && (
                     <button onClick={handleDownloadCsv} className="w-full mt-4 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm flex items-center justify-center gap-2 border border-slate-600 shadow-lg transition-all">
                         Lưu file chandoan.csv ({history.length} dòng)
@@ -228,25 +256,41 @@ const MainPage: React.FC<MainPageProps> = ({ user, onLogout }) => {
                 </div>
 
                 <div className="lg:col-span-8">
-                  {error && (
-                    <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-xl mb-4 animate-shake">
-                      <p className="font-bold">{t.error}: {error}</p>
-                      {isCorsError && (
-                        <button onClick={handleSimulateSuccess} className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition text-xs font-bold">
-                            {t.simulateSuccess}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {!result && !healthResult && !loading && !error && (
-                    <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-500 bg-slate-800/30 rounded-2xl border-2 border-dashed border-slate-700">
-                      <p className="text-lg font-medium">{t.awaitingData}</p>
-                    </div>
-                  )}
-                  {activeTab === 'health' ? (
-                      <HealthIndexView result={healthResult} lang={lang} />
+                  {activeTab === 'gemini' && isGuest ? (
+                      <div className="h-full min-h-[400px] flex items-center justify-center bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-700">
+                          <div className="text-center p-8">
+                               <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m11 3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                               </div>
+                               <h3 className="text-xl font-bold text-white mb-2">{t.accessDenied}</h3>
+                               <p className="text-slate-400">{t.accessDeniedDesc}</p>
+                          </div>
+                      </div>
                   ) : (
-                      <DiagnosisView result={result} gasData={gasData} lang={lang} activeTab={activeTab === 'proposed' ? 'proposed' : 'gemini'} />
+                      <>
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-xl mb-4 animate-shake">
+                            <p className="font-bold">{t.error}: {error}</p>
+                            {isCorsError && (
+                                <button onClick={handleSimulateSuccess} className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition text-xs font-bold">
+                                    {t.simulateSuccess}
+                                </button>
+                            )}
+                            </div>
+                        )}
+                        {!result && !healthResult && !loading && !error && (
+                            <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-500 bg-slate-800/30 rounded-2xl border-2 border-dashed border-slate-700">
+                            <p className="text-lg font-medium">{t.awaitingData}</p>
+                            </div>
+                        )}
+                        {activeTab === 'health' ? (
+                            <HealthIndexView result={healthResult} lang={lang} role={role} />
+                        ) : (
+                            <DiagnosisView result={result} gasData={gasData} lang={lang} activeTab={activeTab === 'proposed' ? 'proposed' : 'gemini'} role={role} />
+                        )}
+                      </>
                   )}
                 </div>
               </div>
