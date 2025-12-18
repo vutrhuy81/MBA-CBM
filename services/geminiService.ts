@@ -1,13 +1,35 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { GasData, DiagnosisResult, Language, HealthIndexResult } from "../types";
+
+// --- CẤU HÌNH API KEY (QUAN TRỌNG) ---
+// Hàm này đảm bảo code lấy được key dù chạy ở Client (Vite) hay Server (Vercel Node.js)
+const getApiKey = (): string => {
+  // 1. Kiểm tra môi trường Vite (Client-side/Build time)
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
+    return import.meta.env.VITE_API_KEY;
+  }
+  // 2. Kiểm tra môi trường Server (Vercel Serverless Functions / Node.js)
+  if (typeof process !== 'undefined' && process.env) {
+    // Ưu tiên VITE_API_KEY nếu có, nếu không thì tìm API_KEY
+    return process.env.VITE_API_KEY || process.env.API_KEY || "";
+  }
+  return "";
+};
+
+const apiKey = getApiKey();
+
+// Khởi tạo instance AI một lần để tái sử dụng (hoặc ném lỗi sớm nếu thiếu key)
+if (!apiKey) {
+  console.warn("⚠️ CẢNH BÁO: Không tìm thấy API Key. Hãy kiểm tra biến môi trường VITE_API_KEY trong file .env hoặc Vercel Settings.");
+}
+
+const ai = new GoogleGenAI({ apiKey: apiKey });
+// -------------------------------------
 
 /**
  * Diagnoses transformer fault using Gemini AI.
  */
 export const diagnoseTransformer = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
-  // Fix: Initializing GoogleGenAI inside the function as per best practices for key management.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const targetLanguage = lang === 'vi' ? 'Vietnamese' : 'English';
   const prompt = `
     Act as a Senior High Voltage Transformer Diagnostic Engineer.
@@ -22,9 +44,8 @@ export const diagnoseTransformer = async (gasData: GasData, lang: Language): Pro
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      // Fix: Simplified contents format to use direct string input.
-      contents: prompt,
+      model: 'gemini-2.0-flash-exp', // Update: Dùng model 2.0 Flash mới nhất (Model 3 chưa public phổ biến)
+      contents: { role: 'user', parts: [{ text: prompt }] }, // Chuẩn hóa format contents
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -53,9 +74,12 @@ export const diagnoseTransformer = async (gasData: GasData, lang: Language): Pro
       }
     });
 
-    const text = response.text;
+    const text = response.text(); // SDK mới thường dùng hàm .text() hoặc property text
     if (!text) throw new Error("Empty response from AI");
-    return JSON.parse(text) as DiagnosisResult;
+    
+    // Đảm bảo trả về JSON hợp lệ (đôi khi AI thêm markdown ```json)
+    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanText) as DiagnosisResult;
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;
@@ -72,24 +96,24 @@ export const getExpertConsultation = async (
     duvalTriangleZone: string,
     duvalPentagonZone: string
 ) => {
-    // Fix: Initializing GoogleGenAI inside the function as per best practices.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `Evaluate transformer health. Gas: H2:${gasData.H2} CH4:${gasData.CH4} C2H6:${gasData.C2H6} C2H4:${gasData.C2H4} C2H2:${gasData.C2H2}. Model Pred: ${prediction.faultType}. Duval T1: ${duvalTriangleZone}. Duval P1: ${duvalPentagonZone}. Language: ${lang}. Provide technical insights.`;
-    const response: GenerateContentResponse = await ai.models.generateContent({ 
-      model: 'gemini-3-pro-preview', 
-      // Fix: Simplified contents format.
-      contents: prompt
-    });
-    return response.text;
+    
+    try {
+      const response: GenerateContentResponse = await ai.models.generateContent({ 
+        model: 'gemini-2.0-flash-exp', 
+        contents: { role: 'user', parts: [{ text: prompt }] }
+      });
+      return response.text();
+    } catch (error) {
+      console.error("Expert Consultation Error:", error);
+      return "Error fetching consultation.";
+    }
 };
 
 /**
  * EXPERT HEALTH INDEX CONSULTATION
- * Uses Gemini 3 Pro to evaluate DGAF, LEDTF, PIF indices.
  */
 export const getHealthIndexConsultation = async (result: HealthIndexResult, lang: Language) => {
-  // Fix: Initializing GoogleGenAI inside the function as per best practices.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `
     Bạn là một Chuyên gia Cao cấp về Quản lý Vận hành và Chẩn đoán Máy biến áp (MBA) truyền tải 110kV-500kV.
     Dựa trên kết quả tính toán Health Index (HI) GBDT sau đây, hãy cung cấp một bản phân tích kỹ thuật chuyên sâu và các đề xuất bảo trì:
@@ -115,11 +139,10 @@ export const getHealthIndexConsultation = async (result: HealthIndexResult, lang
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({ 
-      model: 'gemini-3-pro-preview', 
-      // Fix: Simplified contents format.
-      contents: prompt
+      model: 'gemini-2.0-flash-exp', 
+      contents: { role: 'user', parts: [{ text: prompt }] }
     });
-    return response.text;
+    return response.text();
   } catch (error) {
     console.error("Health Index Consultation Error:", error);
     throw error;
@@ -130,17 +153,14 @@ export const getHealthIndexConsultation = async (result: HealthIndexResult, lang
  * Searches for standards using Google Search grounding.
  */
 export const searchStandards = async (query: string, lang: Language) => {
-  // Fix: Initializing GoogleGenAI inside the function as per best practices.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      // Fix: Simplified contents format.
-      contents: `Search transformer industry standards for: ${query}. Language: ${lang}`,
+      model: 'gemini-2.0-flash-exp',
+      contents: { role: 'user', parts: [{ text: `Search transformer industry standards for: ${query}. Language: ${lang}` }] },
       config: { tools: [{ googleSearch: {} }] }
     });
     return { 
-      text: response.text || "", 
+      text: response.text() || "", 
       chunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks 
     };
   } catch (e) { 
