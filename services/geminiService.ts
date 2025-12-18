@@ -1,34 +1,13 @@
+
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { GasData, DiagnosisResult, Language, HealthIndexResult } from "../types";
-
-// --- SỬA ĐỔI: Cấu hình lấy API KEY ---
-// Hàm này giúp lấy key dù chạy trên Vite (Client) hay Vercel Server Function (Node)
-const getApiKey = (): string => {
-  // 1. Ưu tiên lấy từ Vite env (thường dùng import.meta.env)
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
-    return import.meta.env.VITE_API_KEY;
-  }
-  // 2. Fallback sang process.env nếu chạy môi trường Nodejs/Vercel Server
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env.VITE_API_KEY || process.env.API_KEY || "";
-  }
-  return "";
-};
-
-const apiKey = getApiKey();
-
-if (!apiKey) {
-  console.warn("⚠️ Warning: API Key is missing. Please set VITE_API_KEY in Vercel Environment Variables.");
-}
-
-// Initialize with the retrieved key
-const ai = new GoogleGenAI({ apiKey: apiKey });
-// -------------------------------------
 
 /**
  * Diagnoses transformer fault using Gemini AI.
  */
 export const diagnoseTransformer = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
+  // Fix: Initializing GoogleGenAI inside the function as per best practices for key management.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const targetLanguage = lang === 'vi' ? 'Vietnamese' : 'English';
   const prompt = `
     Act as a Senior High Voltage Transformer Diagnostic Engineer.
@@ -43,8 +22,9 @@ export const diagnoseTransformer = async (gasData: GasData, lang: Language): Pro
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp', // Lưu ý: 'gemini-3-pro-preview' có thể chưa ổn định, mình update về flash-exp hoặc pro mới nhất để an toàn, bạn có thể đổi lại nếu muốn.
-      contents: [{ parts: [{ text: prompt }] }],
+      model: 'gemini-3-pro-preview',
+      // Fix: Simplified contents format to use direct string input.
+      contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -92,19 +72,24 @@ export const getExpertConsultation = async (
     duvalTriangleZone: string,
     duvalPentagonZone: string
 ) => {
+    // Fix: Initializing GoogleGenAI inside the function as per best practices.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `Evaluate transformer health. Gas: H2:${gasData.H2} CH4:${gasData.CH4} C2H6:${gasData.C2H6} C2H4:${gasData.C2H4} C2H2:${gasData.C2H2}. Model Pred: ${prediction.faultType}. Duval T1: ${duvalTriangleZone}. Duval P1: ${duvalPentagonZone}. Language: ${lang}. Provide technical insights.`;
     const response: GenerateContentResponse = await ai.models.generateContent({ 
-      model: 'gemini-2.0-flash-exp', 
-      contents: [{ parts: [{ text: prompt }] }]
+      model: 'gemini-3-pro-preview', 
+      // Fix: Simplified contents format.
+      contents: prompt
     });
     return response.text;
 };
 
 /**
  * EXPERT HEALTH INDEX CONSULTATION
- * Uses Gemini to evaluate DGAF, LEDTF, PIF indices.
+ * Uses Gemini 3 Pro to evaluate DGAF, LEDTF, PIF indices.
  */
 export const getHealthIndexConsultation = async (result: HealthIndexResult, lang: Language) => {
+  // Fix: Initializing GoogleGenAI inside the function as per best practices.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `
     Bạn là một Chuyên gia Cao cấp về Quản lý Vận hành và Chẩn đoán Máy biến áp (MBA) truyền tải 110kV-500kV.
     Dựa trên kết quả tính toán Health Index (HI) GBDT sau đây, hãy cung cấp một bản phân tích kỹ thuật chuyên sâu và các đề xuất bảo trì:
@@ -130,8 +115,9 @@ export const getHealthIndexConsultation = async (result: HealthIndexResult, lang
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({ 
-      model: 'gemini-2.0-flash-exp', 
-      contents: [{ parts: [{ text: prompt }] }]
+      model: 'gemini-3-pro-preview', 
+      // Fix: Simplified contents format.
+      contents: prompt
     });
     return response.text;
   } catch (error) {
@@ -144,10 +130,13 @@ export const getHealthIndexConsultation = async (result: HealthIndexResult, lang
  * Searches for standards using Google Search grounding.
  */
 export const searchStandards = async (query: string, lang: Language) => {
+  // Fix: Initializing GoogleGenAI inside the function as per best practices.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp',
-      contents: [{ parts: [{ text: `Search transformer industry standards for: ${query}. Language: ${lang}` }] }],
+      model: 'gemini-3-pro-preview',
+      // Fix: Simplified contents format.
+      contents: `Search transformer industry standards for: ${query}. Language: ${lang}`,
       config: { tools: [{ googleSearch: {} }] }
     });
     return { 
