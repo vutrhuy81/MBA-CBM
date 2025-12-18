@@ -4,17 +4,20 @@ import { HealthIndexResult, Language } from '../types';
 import { translations } from '../constants/translations';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { getHealthIndexConsultation } from '../services/geminiService';
+import { UserRole } from './LoginPage';
 
 interface HealthIndexViewProps {
     result: HealthIndexResult | null;
     lang: Language;
+    role: UserRole;
 }
 
-const HealthIndexView: React.FC<HealthIndexViewProps> = ({ result, lang }) => {
+const HealthIndexView: React.FC<HealthIndexViewProps> = ({ result, lang, role }) => {
     const [expertAdvice, setExpertAdvice] = useState<string | null>(null);
     const [loadingExpert, setLoadingExpert] = useState(false);
     
     const t = translations[lang];
+    const isAdmin = role === 'Admin';
 
     useEffect(() => {
         setExpertAdvice(null);
@@ -23,6 +26,7 @@ const HealthIndexView: React.FC<HealthIndexViewProps> = ({ result, lang }) => {
     if (!result) return null;
 
     const handleAskExpert = async () => {
+        if (!isAdmin) return;
         setLoadingExpert(true);
         try {
             const advice = await getHealthIndexConsultation(result, lang);
@@ -218,72 +222,73 @@ const HealthIndexView: React.FC<HealthIndexViewProps> = ({ result, lang }) => {
                 </div>
             </div>
 
-            {/* EXPERT CONSULTATION SECTION */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-rose-500/30 shadow-lg shadow-rose-500/5 mt-6">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-rose-400 flex items-center gap-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                        </svg>
-                        {t.hiExpertTitle}
-                    </h3>
-                </div>
+            {/* EXPERT CONSULTATION SECTION - Hidden for Guests */}
+            {isAdmin && (
+                <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-rose-500/30 shadow-lg shadow-rose-500/5 mt-6">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-rose-400 flex items-center gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                            </svg>
+                            {t.hiExpertTitle}
+                        </h3>
+                    </div>
 
-                {!expertAdvice ? (
-                    <div className="flex flex-col items-center justify-center p-8 bg-slate-900/30 rounded-xl border border-dashed border-slate-700">
-                        <p className="text-slate-400 text-sm mb-6 text-center max-w-lg">
-                            {t.hiExpertDisclaimer}
-                        </p>
-                        <button 
-                            onClick={handleAskExpert}
-                            disabled={loadingExpert}
-                            className="px-8 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold transition-all shadow-xl hover:shadow-rose-500/20 active:scale-95 flex items-center gap-3"
-                        >
-                            {loadingExpert ? (
-                                <>
-                                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    {t.consulting}
-                                </>
-                            ) : (
-                                <>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                    </svg>
-                                    {t.askHiExpert}
-                                </>
-                            )}
-                        </button>
-                    </div>
-                ) : (
-                    <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700 animate-fade-in shadow-inner max-h-[600px] overflow-y-auto custom-scrollbar">
-                        <div className="prose prose-invert prose-sm max-w-none text-slate-300">
-                            {expertAdvice.split('\n').map((line, i) => {
-                                const trimmed = line.trim();
-                                if (trimmed.startsWith('###')) {
-                                    return <h3 key={i} className="text-rose-300 font-bold mt-6 mb-3 border-b border-rose-500/20 pb-1">{trimmed.replace('###', '')}</h3>;
-                                }
-                                if (trimmed.startsWith('##')) {
-                                    return <h2 key={i} className="text-rose-200 font-bold mt-8 mb-4 text-lg">{trimmed.replace('##', '')}</h2>;
-                                }
-                                if (trimmed.startsWith('**')) {
-                                    // Handle bold text as paragraphs or spans
-                                    return <p key={i} className="font-bold text-slate-100 my-2">{trimmed.replace(/\*\*/g, '')}</p>;
-                                }
-                                if (trimmed.startsWith('-')) {
-                                    return <li key={i} className="ml-6 mb-2 list-disc marker:text-rose-500">{trimmed.replace('-', '').trim()}</li>;
-                                }
-                                if (trimmed === '') {
-                                    return <div key={i} className="h-2"></div>;
-                                }
-                                return <p key={i} className="mb-3 leading-relaxed">{trimmed}</p>;
-                            })}
+                    {!expertAdvice ? (
+                        <div className="flex flex-col items-center justify-center p-8 bg-slate-900/30 rounded-xl border border-dashed border-slate-700">
+                            <p className="text-slate-400 text-sm mb-6 text-center max-w-lg">
+                                {t.hiExpertDisclaimer}
+                            </p>
+                            <button 
+                                onClick={handleAskExpert}
+                                disabled={loadingExpert}
+                                className="px-8 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold transition-all shadow-xl hover:shadow-rose-500/20 active:scale-95 flex items-center gap-3"
+                            >
+                                {loadingExpert ? (
+                                    <>
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        {t.consulting}
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                        </svg>
+                                        {t.askHiExpert}
+                                    </>
+                                )}
+                            </button>
                         </div>
-                    </div>
-                )}
-            </div>
+                    ) : (
+                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700 animate-fade-in shadow-inner max-h-[600px] overflow-y-auto custom-scrollbar">
+                            <div className="prose prose-invert prose-sm max-w-none text-slate-300">
+                                {expertAdvice.split('\n').map((line, i) => {
+                                    const trimmed = line.trim();
+                                    if (trimmed.startsWith('###')) {
+                                        return <h3 key={i} className="text-rose-300 font-bold mt-6 mb-3 border-b border-rose-500/20 pb-1">{trimmed.replace('###', '')}</h3>;
+                                    }
+                                    if (trimmed.startsWith('##')) {
+                                        return <h2 key={i} className="text-rose-200 font-bold mt-8 mb-4 text-lg">{trimmed.replace('##', '')}</h2>;
+                                    }
+                                    if (trimmed.startsWith('**')) {
+                                        return <p key={i} className="font-bold text-slate-100 my-2">{trimmed.replace(/\*\*/g, '')}</p>;
+                                    }
+                                    if (trimmed.startsWith('-')) {
+                                        return <li key={i} className="ml-6 mb-2 list-disc marker:text-rose-500">{trimmed.replace('-', '').trim()}</li>;
+                                    }
+                                    if (trimmed === '') {
+                                        return <div key={i} className="h-2"></div>;
+                                    }
+                                    return <p key={i} className="mb-3 leading-relaxed">{trimmed}</p>;
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

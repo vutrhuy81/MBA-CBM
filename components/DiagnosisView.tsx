@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { DiagnosisResult, GasData, GroundingChunk, Language } from '../types';
 import { 
@@ -9,15 +10,17 @@ import { translations } from '../constants/translations';
 import { getDuval1Analysis, getDuvalPentagonAnalysis } from '../utils/duvalMath';
 import DuvalTriangle from './DuvalTriangle';
 import DuvalPentagon from './DuvalPentagon';
+import { UserRole } from './LoginPage';
 
 interface DiagnosisViewProps {
   result: DiagnosisResult | null;
   gasData: GasData;
   lang: Language;
   activeTab: 'gemini' | 'proposed';
+  role: UserRole;
 }
 
-const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, activeTab }) => {
+const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, activeTab, role }) => {
   const [searchResult, setSearchResult] = useState<{ text: string, chunks?: GroundingChunk[] } | null>(null);
   const [searching, setSearching] = useState(false);
   
@@ -26,6 +29,7 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
   const [loadingExpert, setLoadingExpert] = useState(false);
 
   const t = translations[lang];
+  const isAdmin = role === 'Admin';
 
   // Reset expert advice when result changes
   useEffect(() => {
@@ -70,9 +74,9 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
   };
 
   const handleAskExpert = async () => {
+    if (!isAdmin) return;
     setLoadingExpert(true);
     try {
-        // Calculate Duval results specifically for expert analysis
         const duvalTriangleResult = getDuval1Analysis(gasData).zone;
         const duvalPentagonResult = getDuvalPentagonAnalysis(gasData);
 
@@ -172,7 +176,6 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
 
       {/* Basic Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-         {/* Bar Chart */}
         <div className="bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-700 shadow-lg h-96 flex flex-col">
           <h3 className="text-lg font-semibold text-white mb-2">{t.gasChartTitle}</h3>
           <div className="flex-grow w-full min-h-0">
@@ -205,7 +208,6 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
           </div>
         </div>
 
-        {/* Radar Chart */}
         <div className="bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-700 shadow-lg h-96 flex flex-col">
           <h3 className="text-lg font-semibold text-white mb-2">{t.radarChartTitle}</h3>
           <div className="flex-grow w-full min-h-0">
@@ -244,7 +246,6 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
       <div className="mt-4">
         <h3 className="text-xl font-bold text-white mb-4">{t.duvalTitle}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Duval Triangle 1 */}
             <DuvalTriangle 
                 type="1"
                 title="Duval Triangle 1"
@@ -252,7 +253,6 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
                 pA={d1.pA} pB={d1.pB} pC={d1.pC}
                 labelA="%CH4" labelB="%C2H4" labelC="%C2H2"
             />
-            {/* Duval Pentagon 1 */}
             <DuvalPentagon
                 gasData={gasData}
                 title="Duval Pentagon 1"
@@ -261,8 +261,8 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
         </div>
       </div>
 
-      {/* EXPERT CONSULTATION SECTION - Moved to bottom */}
-      {activeTab === 'proposed' && (
+      {/* EXPERT CONSULTATION SECTION - Hidden for Guests */}
+      {activeTab === 'proposed' && isAdmin && (
         <div className="bg-gradient-to-r from-slate-800 to-slate-800/80 p-6 rounded-2xl border border-emerald-500/30 shadow-lg shadow-emerald-500/5 mt-6">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-emerald-400 flex items-center gap-2">
@@ -301,7 +301,6 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
             ) : (
                 <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 animate-fade-in">
                     <div className="prose prose-invert prose-sm max-w-none text-slate-300">
-                        {/* Simple Markdown Rendering */}
                         {expertAdvice.split('\n').map((line, i) => {
                             if (line.startsWith('###')) return <h3 key={i} className="text-emerald-300 font-bold mt-4 mb-2">{line.replace('###', '')}</h3>
                             if (line.startsWith('##')) return <h3 key={i} className="text-emerald-300 font-bold mt-4 mb-2">{line.replace('##', '')}</h3>

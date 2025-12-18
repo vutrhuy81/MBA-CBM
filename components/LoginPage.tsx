@@ -1,8 +1,10 @@
 
 import React, { useState } from 'react';
 
+export type UserRole = 'Admin' | 'Guest';
+
 interface LoginPageProps {
-  onLogin: (username: string) => void;
+  onLogin: (username: string, role: UserRole) => void;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
@@ -10,24 +12,25 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const validUsers: Record<string, string> = {
-    'admin': '123456',
-    'manager': '123456',
-    'user1': '123456',
-    'user2': '123456'
+  const validUsers: Record<string, { pass: string; role: UserRole }> = {
+    'admin': { pass: '123456', role: 'Admin' },
+    'manager': { pass: '123456', role: 'Admin' },
+    'user1': { pass: '123456', role: 'Guest' },
+    'user2': { pass: '123456', role: 'Guest' }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (validUsers[username] === password) {
-      onLogin(username);
+    const user = validUsers[username];
+    if (user && user.pass === password) {
+      onLogin(username, user.role);
     } else {
       setError('Tên đăng nhập hoặc mật khẩu không chính xác!');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 font-sans text-slate-200">
       <div className="max-w-md w-full bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden animate-fade-in">
         <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-center">
           <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -77,8 +80,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             Đăng nhập
           </button>
 
-          <div className="text-center pt-2">
-            <p className="text-xs text-slate-500">
+          <div className="text-center pt-2 space-y-1">
+             <div className="flex justify-center gap-4 text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                <span>Admin: admin, manager</span>
+                <span>Guest: user1, user2</span>
+             </div>
+            <p className="text-xs text-slate-600">
               © 2025 Power Transformer Diagnostics System by Vu Tran Huy
             </p>
           </div>

@@ -1,5 +1,7 @@
+
 import React from 'react';
-import { GasData, Language, ModelType } from '../types';
+// Updated to include TabType in imports
+import { GasData, Language, ModelType, TabType } from '../types';
 import { translations } from '../constants/translations';
 
 interface GasInputProps {
@@ -7,7 +9,8 @@ interface GasInputProps {
   setGasData: React.Dispatch<React.SetStateAction<GasData>>;
   onDiagnose: () => void;
   loading: boolean;
-  activeTab: 'gemini' | 'proposed' | 'health';
+  // Updated activeTab to use TabType for consistency with the rest of the app
+  activeTab: TabType;
   lang: Language;
   selectedModel?: ModelType;
   onSelectModel?: (model: ModelType) => void;
@@ -94,7 +97,7 @@ const GasInput: React.FC<GasInputProps> = ({
                 {t.inputTitleProposed}
             </h2>
           );
-      } else {
+      } else if (activeTab === 'health') {
         return (
             <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -103,6 +106,9 @@ const GasInput: React.FC<GasInputProps> = ({
                 {t.inputTitleHealth}
             </h2>
           );
+      } else {
+        // Fallback for types that might not have a header defined in this component
+        return null;
       }
   }
 
@@ -113,6 +119,7 @@ const GasInput: React.FC<GasInputProps> = ({
           case 'gemini': return 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white';
           case 'proposed': return 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white';
           case 'health': return 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white';
+          default: return 'bg-slate-700 text-slate-400';
       }
   }
 
@@ -121,6 +128,7 @@ const GasInput: React.FC<GasInputProps> = ({
         case 'gemini': return t.runGemini;
         case 'proposed': return t.runProposed;
         case 'health': return t.runHealth;
+        default: return '';
     }
   }
 
@@ -231,7 +239,7 @@ const GasInput: React.FC<GasInputProps> = ({
           {activeTab === 'gemini' ? t.loadExample : t.loadTest}
         </p>
         <div className="flex flex-wrap gap-2">
-          {Object.entries(activePresets).map(([name, data]) => (
+          {Object.entries(geminiPresets).map(([name, data]) => (
             <button
               key={name}
               onClick={() => handlePreset(withExtras(data))}
