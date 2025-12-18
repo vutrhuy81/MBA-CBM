@@ -108,8 +108,6 @@ const AXIS_ANGLES = [
 
 /**
  * Tính toán điểm lỗi dựa trên phương pháp TRỌNG SỐ VECTOR (Standard Duval Method)
- * Điểm lỗi là trọng tâm của 5 đỉnh ngũ giác, với khối lượng tại mỗi đỉnh 
- * tương ứng với % nồng độ khí đó.
  */
 export const calculatePentagonCentroid = (
   gas: GasData,
@@ -138,12 +136,7 @@ export const calculatePentagonCentroid = (
     };
   });
 
-  // 3. Tính Diện tích (A) và Trọng tâm (Cx, Cy) theo công thức Polygon Centroid
-  // Công thức:
-  // A = 0.5 * Σ (xi*yi+1 - xi+1*yi)
-  // Cx = (1/6A) * Σ (xi + xi+1)(xi*yi+1 - xi+1*yi)
-  // Cy = (1/6A) * Σ (yi + yi+1)(xi*yi+1 - xi+1*yi)
-
+  // 3. Tính Diện tích (A) và Trọng tâm (Cx, Cy)
   let A = 0;
   let Cx_num = 0;
   let Cy_num = 0;
@@ -151,9 +144,9 @@ export const calculatePentagonCentroid = (
 
   for (let i = 0; i < n; i++) {
     const curr = vertices[i];
-    const next = vertices[(i + 1) % n]; // Quay vòng về 0
+    const next = vertices[(i + 1) % n]; 
 
-    const cross = curr.x * next.y - next.x * curr.y; // (xi*yi+1 - xi+1*yi)
+    const cross = curr.x * next.y - next.x * curr.y; 
 
     A += cross;
     Cx_num += (curr.x + next.x) * cross;
@@ -162,7 +155,7 @@ export const calculatePentagonCentroid = (
 
   A = A * 0.5;
 
-  // Nếu diện tích quá nhỏ (đa giác suy biến), trả về tâm
+  // Nếu diện tích quá nhỏ, trả về tâm
   if (Math.abs(A) < 1e-9) return { x: cx, y: cy };
 
   const finalCx = Cx_num / (6 * A);
@@ -175,3 +168,61 @@ export const calculatePentagonCentroid = (
     y: cy - finalCy * scale 
   };
 };
+
+// Hàm tính vùng lỗi Pentagon (Ước lượng dựa trên góc của trọng tâm)
+// Lưu ý: Đây là phép tính gần đúng dựa trên vị trí góc của điểm lỗi
+export const getDuvalPentagonAnalysis = (gas: GasData): string => {
+  // Tính trọng tâm trong hệ tọa độ Descartes (không scale, không dịch chuyển tâm)
+  const sum = gas.H2 + gas.C2H6 + gas.CH4 + gas.C2H4 + gas.C2H2;
+  if (sum === 0) return "N/A";
+
+  const gasPercent = [
+    (gas.H2 / sum) * 100,
+    (gas.C2H6 / sum) * 100,
+    (gas.CH4 / sum) * 100,
+    (gas.C2H4 / sum) * 100,
+    (gas.C2H2 / sum) * 100,
+  ];
+
+  const vertices: {x: number, y: number}[] = gasPercent.map((val, i) => {
+    const angle = toRad(AXIS_ANGLES[i]);
+    return { x: val * Math.cos(angle), y: val * Math.sin(angle) };
+  });
+
+  let A = 0;
+  let Cx_num = 0;
+  let Cy_num = 0;
+  const n = 5;
+
+  for (let i = 0; i < n; i++) {
+    const curr = vertices[i];
+    const next = vertices[(i + 1) % n]; 
+    const cross = curr.x * next.y - next.x * curr.y; 
+    A += cross;
+    Cx_num += (curr.x + next.x) * cross;
+    Cy_num += (curr.y + next.y) * cross;
+  }
+  A = A * 0.5;
+
+  if (Math.abs(A) < 1e-9) return "N/A";
+
+  const cx = Cx_num / (6 * A);
+  const cy = Cy_num / (6 * A);
+
+  // Tính góc của vector trọng tâm (0-360 độ)
+  let angle = Math.atan2(cy, cx) * 180 / Math.PI;
+  if (angle < 0) angle += 360;
+
+  // Phân loại vùng dựa trên góc (Mapping với sơ đồ Duval Pentagon 1)
+  // H2 (90), C2H6 (162), CH4 (234), C2H4 (306), C2H2 (18)
+  
+  if (angle >= 80 && angle < 100) return "PD"; // Khu vực đỉnh H2
+  if (angle >= 100 && angle < 190) return "S"; // Giữa H2 và C2H6
+  if (angle >= 190 && angle < 240) return "T1"; // Khu vực CH4
+  if (angle >= 240 && angle < 280) return "T2"; // Giữa CH4 và C2H4 (đáy)
+  if (angle >= 280 && angle < 320) return "T3"; // Khu vực C2H4
+  if (angle >= 320 || angle < 10) return "D2"; // Khu vực bên phải
+  if (angle >= 10 && angle < 80) return "D1"; // Giữa C2H2 và H2
+
+  return "Undetermined";
+}
