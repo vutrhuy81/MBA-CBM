@@ -79,6 +79,10 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
     setHistory(prev => [...prev, newItem]);
   };
 
+  const formatGasDetails = (gas: GasData) => {
+    return `Input: H2:${gas.H2}, CH4:${gas.CH4}, C2H6:${gas.C2H6}, C2H4:${gas.C2H4}, C2H2:${gas.C2H2}, CO:${gas.CO}, CO2:${gas.CO2}`;
+  };
+
   const handleDiagnose = async () => {
     if (activeTab === 'gemini' && isGuest) return;
 
@@ -87,16 +91,18 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
     setResult(null); 
     setHealthResult(null);
 
+    const gasInfo = formatGasDetails(gasData);
+
     try {
       if (activeTab === 'gemini') {
         const data = await diagnoseTransformer(gasData, lang);
         setResult(data);
-        addLog(user, role, t.actionGemini, `Performed AI diagnosis. Result: ${data.faultType}`);
+        addLog(user, role, t.actionGemini, `${gasInfo}. Output: Result=${data.faultType}, Severity=${data.severity}, Confidence=${data.confidence}`);
       } else if (activeTab === 'proposed') {
         const data = await diagnoseWithProposedModel(gasData, lang, selectedModel);
         addToHistory(gasData, data);
         setResult(data);
-        addLog(user, role, t.actionProposed, `Used ${selectedModel.toUpperCase()} model. Predicted: ${data.faultType}`);
+        addLog(user, role, t.actionProposed, `${gasInfo}. Model=${selectedModel.toUpperCase()}. Output: Predicted Fault=${data.faultType}, Description=${data.description.substring(0, 100)}...`);
       } else if (activeTab === 'health') {
         let gbdtFault = "N";
         try {
@@ -110,21 +116,22 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
         }
         const hIndex = calculateHealthIndex(gasData, gbdtFault);
         setHealthResult(hIndex);
-        addLog(user, role, t.actionHealth, `Calculated HI: ${hIndex.finalHI}%. Condition: ${hIndex.condition}`);
+        addLog(user, role, t.actionHealth, `${gasInfo}. Output: HI=${hIndex.finalHI}%, Condition=${hIndex.condition}, DGAF=${hIndex.DGAF}, LEDTF=${hIndex.LEDTF}, PIF=${hIndex.PIF}`);
       }
     } catch (err: any) {
       setError(err.message || "Failed to run diagnosis.");
-      addLog(user, role, "Error", `Action failed: ${err.message}`);
+      addLog(user, role, "Error", `Action failed: ${err.message}. ${gasInfo}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSimulateSuccess = () => {
+    const gasInfo = formatGasDetails(gasData);
     if (activeTab === 'health') {
         const mockHI = calculateHealthIndex(gasData, "D2");
         setHealthResult(mockHI);
-        addLog(user, role, t.actionHealth, `Calculated HI (Demo): ${mockHI.finalHI}%`);
+        addLog(user, role, t.actionHealth, `(DEMO) ${gasInfo}. Output: HI=${mockHI.finalHI}%, Condition=${mockHI.condition}`);
     } else if (activeTab === 'proposed' && selectedModel === 'fasttree') {
         const mockResponse = {
             h2: gasData.H2 || 100, cH4: gasData.CH4 || 100, c2H6: gasData.C2H6 || 11,
@@ -133,7 +140,7 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
         };
         const mockDiagnosis = mapFastTreeResponseToDiagnosis(mockResponse, lang);
         setResult(mockDiagnosis);
-        addLog(user, role, t.actionProposed, `Simulated FastTree success.`);
+        addLog(user, role, t.actionProposed, `(DEMO FASTTREE) ${gasInfo}. Output: ${mockDiagnosis.faultType}`);
     } else {
         const mockResponse = {
             ket_qua_loi: "D2", do_tin_cay: "98.94%",
@@ -141,7 +148,7 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
         };
         const mockDiagnosis = mapApiResponseToDiagnosis(mockResponse, lang);
         setResult(mockDiagnosis);
-        addLog(user, role, "Demo", `Simulated prediction success.`);
+        addLog(user, role, "Demo", `(DEMO GBDT) ${gasInfo}. Output: ${mockDiagnosis.faultType}`);
     }
     setError(null);
   };
@@ -301,9 +308,9 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
                             </div>
                         )}
                         {activeTab === 'health' ? (
-                            <HealthIndexView result={healthResult} lang={lang} role={role} />
+                            <HealthIndexView result={healthResult} lang={lang} role={role} user={user} />
                         ) : (
-                            <DiagnosisView result={result} gasData={gasData} lang={lang} activeTab={activeTab === 'proposed' ? 'proposed' : 'gemini'} role={role} />
+                            <DiagnosisView result={result} gasData={gasData} lang={lang} activeTab={activeTab === 'proposed' ? 'proposed' : 'gemini'} role={role} user={user} />
                         )}
                       </>
                   )}
