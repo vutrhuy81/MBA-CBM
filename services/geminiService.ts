@@ -1,134 +1,70 @@
 
-import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { GasData, DiagnosisResult, Language } from "../types";
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import { GasData, DiagnosisResult, Language, HealthIndexResult } from "../types";
 
-// Helper function to get API Key with priority: LocalStorage > Environment Variable
-const getApiKey = (): string | undefined => {
-  const localKey = localStorage.getItem('gemini_api_key');
-  if (localKey && localKey.trim() !== '') {
-    return localKey;
-  }
-  return import.meta.env.VITE_API_KEY; //process.env.API_KEY;
-  
-};
+// Always initialize with the environment variable as per guidelines.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const parseJSON = (text: string) => {
-  try {
-    // Remove markdown code blocks if present
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanText);
-  } catch (e) {
-    console.error("Failed to parse JSON", e);
-    throw new Error("Invalid response format from AI");
-  }
-};
-
+/**
+ * Diagnoses transformer fault using Gemini AI.
+ */
 export const diagnoseTransformer = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
-  const apiKey = getApiKey();
-  
-  if (!apiKey) {
-    // Return a specific error that the UI can catch to prompt the user
-    throw new Error("MISSING_API_KEY");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-
   const targetLanguage = lang === 'vi' ? 'Vietnamese' : 'English';
-
   const prompt = `
     Act as a Senior High Voltage Transformer Diagnostic Engineer.
-    Analyze the following Dissolved Gas Analysis (DGA) data (in ppm) to predict the transformer fault type.
-    
-    Gas Concentrations:
-    - Hydrogen (H2): ${gasData.H2} ppm
-    - Methane (CH4): ${gasData.CH4} ppm
-    - Ethane (C2H6): ${gasData.C2H6} ppm
-    - Ethylene (C2H4): ${gasData.C2H4} ppm
-    - Acetylene (C2H2): ${gasData.C2H2} ppm
+    Analyze the following DGA data (in ppm):
+    - H2: ${gasData.H2}, CH4: ${gasData.CH4}, C2H6: ${gasData.C2H6}, C2H4: ${gasData.C2H4}, C2H2: ${gasData.C2H2}
+    - CO: ${gasData.CO}, CO2: ${gasData.CO2}
 
-    Use standard methods like Rogers Ratio, IEC 60599, or Duval Triangle logic to determine the fault.
-    
-    Possible Fault Types to consider:
-    - Normal
-    - Partial Discharge (Corona)
-    - Low Energy Discharge (Sparking)
-    - High Energy Discharge (Arcing)
-    - Mix Thermal & Discharge
-    - Thermal Fault < 300°C
-    - Thermal Fault 300°C - 700°C
-    - Thermal Fault > 700°C
-    
-    IMPORTANT: Provide the output in strict JSON format matching the schema.
-    Ensure the content of 'description', 'recommendation', 'interpretation' and 'severity' is written in ${targetLanguage}.
+    Use standard methods like Rogers Ratio, IEC 60599, and Duval Triangle logic.
+    Respond in ${targetLanguage}.
+    Provide the output in strict JSON format.
   `;
 
-  const schema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-      faultType: { type: Type.STRING, description: "The predicted main fault type (Keep technical terms in English usually, or Vietnamese if common)." },
-      confidence: { type: Type.STRING, description: "Confidence level: High, Medium, or Low." },
-      severity: { type: Type.STRING, description: `Condition: Normal, Caution, or Critical (Translate to ${targetLanguage}).` },
-      description: { type: Type.STRING, description: `A technical explanation of why this fault was chosen based on gas levels (in ${targetLanguage}).` },
-      recommendation: { type: Type.STRING, description: `Actionable maintenance advice (in ${targetLanguage}).` },
-      keyGasRatios: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            ratioName: { type: Type.STRING },
-            value: { type: Type.NUMBER },
-            interpretation: { type: Type.STRING, description: `Interpretation in ${targetLanguage}` }
-          }
-        }
-      }
-    },
-    required: ["faultType", "confidence", "severity", "description", "recommendation", "keyGasRatios"]
-  };
-
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
+    const response: GenerateContentResponse = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
-        responseSchema: schema,
-        temperature: 0.2, // Low temperature for consistent analytical results
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            faultType: { type: Type.STRING },
+            confidence: { type: Type.STRING },
+            severity: { type: Type.STRING },
+            description: { type: Type.STRING },
+            recommendation: { type: Type.STRING },
+            keyGasRatios: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  ratioName: { type: Type.STRING },
+                  value: { type: Type.NUMBER },
+                  interpretation: { type: Type.STRING }
+                },
+                required: ["ratioName", "value", "interpretation"]
+              }
+            }
+          },
+          required: ["faultType", "confidence", "severity", "description", "recommendation", "keyGasRatios"]
+        }
       }
     });
 
-    return parseJSON(response.text || "{}") as DiagnosisResult;
+    const text = response.text;
+    if (!text) throw new Error("Empty response from AI");
+    return JSON.parse(text) as DiagnosisResult;
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;
   }
 };
 
-export const searchStandards = async (query: string, lang: Language) => {
-  const apiKey = getApiKey();
-  if (!apiKey) return null;
-
-  const ai = new GoogleGenAI({ apiKey });
-  const langRequest = lang === 'vi' ? 'in Vietnamese' : 'in English';
-  
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `Find the latest standards or guides regarding: ${query}. Summarize key limits briefly ${langRequest}.`,
-      config: {
-        tools: [{ googleSearch: {} }]
-      }
-    });
-
-    return {
-      text: response.text || "",
-      chunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks
-    };
-  } catch (error) {
-    console.error("Search Error", error);
-    return null;
-  }
-};
-
+/**
+ * Gets expert consultation for diagnosis results.
+ */
 export const getExpertConsultation = async (
     gasData: GasData, 
     prediction: DiagnosisResult, 
@@ -136,44 +72,70 @@ export const getExpertConsultation = async (
     duvalTriangleZone: string,
     duvalPentagonZone: string
 ) => {
-    const apiKey = getApiKey();
-    if (!apiKey) throw new Error("MISSING_API_KEY");
-  
-    const ai = new GoogleGenAI({ apiKey });
-    const targetLanguage = lang === 'vi' ? 'Vietnamese' : 'English';
-  
-    const prompt = `
-      You are a Senior High Voltage Transformer Diagnostic Expert.
-      
-      A separate Machine Learning model (GBDT/FastTree) has analyzed the Dissolved Gas Analysis (DGA) data.
-      
-      --- INPUT DATA (ppm) ---
-      H2: ${gasData.H2} | CH4: ${gasData.CH4} | C2H6: ${gasData.C2H6} | C2H4: ${gasData.C2H4} | C2H2: ${gasData.C2H2}
-      
-      --- DIAGNOSTIC RESULTS ---
-      1. Machine Learning Model Prediction: ${prediction.faultType} (Confidence: ${prediction.confidence})
-      2. Duval Triangle 1 Result: Zone ${duvalTriangleZone}
-      3. Duval Pentagon 1 Result: Zone ${duvalPentagonZone}
-  
-      --- YOUR TASK ---
-      Based on your expertise, provide a comprehensive evaluation in ${targetLanguage}.
-      
-      1. **Consistency Check**: specificially compare the Machine Learning prediction with the Duval Triangle 1 and Duval Pentagon 1 results. Do they agree? If there is a conflict, which one is likely more reliable based on the gas ratios?
-      2. **Root Cause Analysis**: Provide a deep analysis of the likely physical phenomenon (e.g., overheating of oil, paper carbonization, high energy arcing) consistent with the provided gas data.
-      3. **Actionable Recommendations**: Suggest 3 specific next steps (e.g., specific electrical tests like DCR, Turns Ratio, or sampling frequency).
-      
-      Format the response in Markdown with clear headings.
-    `;
-  
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-  
-      return response.text;
-    } catch (error) {
-      console.error("Expert Consultation Error:", error);
-      throw error;
-    }
+    const prompt = `Evaluate transformer health. Gas: H2:${gasData.H2} CH4:${gasData.CH4} C2H6:${gasData.C2H6} C2H4:${gasData.C2H4} C2H2:${gasData.C2H2}. Model Pred: ${prediction.faultType}. Duval T1: ${duvalTriangleZone}. Duval P1: ${duvalPentagonZone}. Language: ${lang}. Provide technical insights.`;
+    const response: GenerateContentResponse = await ai.models.generateContent({ 
+      model: 'gemini-3-pro-preview', 
+      contents: [{ parts: [{ text: prompt }] }]
+    });
+    return response.text;
+};
+
+/**
+ * EXPERT HEALTH INDEX CONSULTATION
+ * Uses Gemini 3 Pro to evaluate DGAF, LEDTF, PIF indices.
+ */
+export const getHealthIndexConsultation = async (result: HealthIndexResult, lang: Language) => {
+  const prompt = `
+    Bạn là một Chuyên gia Cao cấp về Quản lý Vận hành và Chẩn đoán Máy biến áp (MBA) truyền tải 110kV-500kV.
+    Dựa trên kết quả tính toán Health Index (HI) GBDT sau đây, hãy cung cấp một bản phân tích kỹ thuật chuyên sâu và các đề xuất bảo trì:
+
+     THÔNG SỐ SỨC KHỎE MBA:
+    - Health Index Tổng hợp (Final HI): ${result.finalHI}% (Tình trạng: ${result.condition})
+    - Chỉ số DGA (DGAF): ${result.DGAF}
+    - Chỉ số Phóng điện/Nhiệt (LEDTF): ${result.LEDTF}
+    - Chỉ số Cách điện giấy (PIF): ${result.PIF} (Phân rã Cellulose: PIF1=${result.PIF1}, PIF2=${result.PIF2})
+    - Kết quả Dự đoán GBDT: ${result.gbdtFault}
+    - Tổng khí cháy (TDCG): ${result.TDCG} ppm
+    - Tỷ số CO2/CO: ${result.CO2_CO_Ratio}
+
+    YÊU CẦU PHÂN TÍCH:
+    1. Đánh giá rủi ro: Kết luận về mức độ tin cậy vận hành hiện tại. Có nguy cơ sự cố đột xuất không?
+    2. Giải thích các chỉ số then chốt: 
+       - LEDTF cho thấy gì về rủi ro phóng điện hoặc quá nhiệt trong dầu?
+       - PIF và tỷ số CO2/CO phản ánh tình trạng lão hóa giấy cách điện Cellulose như thế nào?
+    3. Chiến lược bảo trì: Đưa ra 4-5 hành động cụ thể (ví dụ: Tần suất lấy mẫu khí, thí nghiệm điện FDS/PDC, kiểm tra bộ đổi nấc dưới tải OLTC, lọc dầu hay thay thế giấy cách điện).
+    
+    Phản hồi bằng tiếng ${lang === 'vi' ? 'Việt' : 'Anh'} theo phong cách báo cáo chuyên gia kỹ thuật, sử dụng định dạng Markdown (Dùng ### cho tiêu đề phần).
+  `;
+
+  try {
+    const response: GenerateContentResponse = await ai.models.generateContent({ 
+      model: 'gemini-3-pro-preview', 
+      contents: [{ parts: [{ text: prompt }] }]
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Health Index Consultation Error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Searches for standards using Google Search grounding.
+ */
+export const searchStandards = async (query: string, lang: Language) => {
+  try {
+    const response: GenerateContentResponse = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: [{ parts: [{ text: `Search transformer industry standards for: ${query}. Language: ${lang}` }] }],
+      config: { tools: [{ googleSearch: {} }] }
+    });
+    return { 
+      text: response.text || "", 
+      chunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks 
+    };
+  } catch (e) { 
+    console.error("Search Grounding Error:", e);
+    return null; 
+  }
 };
