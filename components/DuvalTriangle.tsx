@@ -70,8 +70,8 @@ const DuvalTriangle: React.FC<DuvalTriangleProps> = ({
       return [
         { label: "PD", color: "#3b82f6", points: [P1.Top, P1.b, P1.a] },
         { label: "T1", color: "#facc15", points: [P1.b, P1.e, P1.d, P1.c] },
-        { label: "T2", color: "#fbbf24", points: [P1.e, P1.g, P1.f, P1.d] },
-        { label: "T3", color: "#ea580c", points: [P1.g, P1.Right, P1.I, P1.h, P1.f] },
+        { label: "T2", color: "#f8d47e", points: [P1.e, P1.g, P1.f, P1.d] },
+        { label: "T3", color: "#DE8F6E", points: [P1.g, P1.Right, P1.I, P1.h, P1.f] },
         { label: "D1", color: "#10b981", points: [P1.n, P1.m, P1.o, P1.Left] },
         { 
           label: "D2", color: "#ef4444", 

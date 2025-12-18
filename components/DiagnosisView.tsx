@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DiagnosisResult, GasData, GroundingChunk, Language } from '../types';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis 
 } from 'recharts';
-import { searchStandards } from '../services/geminiService';
+import { searchStandards, getExpertConsultation } from '../services/geminiService';
 import { translations } from '../constants/translations';
-import { getDuval1Analysis } from '../utils/duvalMath';
+import { getDuval1Analysis, getDuvalPentagonAnalysis } from '../utils/duvalMath';
 import DuvalTriangle from './DuvalTriangle';
 import DuvalPentagon from './DuvalPentagon';
 
@@ -14,12 +14,24 @@ interface DiagnosisViewProps {
   result: DiagnosisResult | null;
   gasData: GasData;
   lang: Language;
+  activeTab: 'gemini' | 'proposed';
 }
 
-const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang }) => {
+const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, activeTab }) => {
   const [searchResult, setSearchResult] = useState<{ text: string, chunks?: GroundingChunk[] } | null>(null);
   const [searching, setSearching] = useState(false);
+  
+  // Expert Consultation State
+  const [expertAdvice, setExpertAdvice] = useState<string | null>(null);
+  const [loadingExpert, setLoadingExpert] = useState(false);
+
   const t = translations[lang];
+
+  // Reset expert advice when result changes
+  useEffect(() => {
+    setExpertAdvice(null);
+    setSearchResult(null);
+  }, [result]);
 
   if (!result) return null;
 
@@ -39,7 +51,7 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang }) 
     { subject: 'C2H2', A: gasData.C2H2, fullMark: 1000 },
   ];
 
-  // Calculate Duval Data (Only Duval 1)
+  // Calculate Duval Data
   const d1 = getDuval1Analysis(gasData);
 
   const getSeverityColor = (severity: string) => {
@@ -55,6 +67,28 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang }) 
     const res = await searchStandards(`transformer fault diagnosis for ${result.faultType} with current gas levels`, lang);
     setSearchResult(res);
     setSearching(false);
+  };
+
+  const handleAskExpert = async () => {
+    setLoadingExpert(true);
+    try {
+        // Calculate Duval results specifically for expert analysis
+        const duvalTriangleResult = getDuval1Analysis(gasData).zone;
+        const duvalPentagonResult = getDuvalPentagonAnalysis(gasData);
+
+        const advice = await getExpertConsultation(
+            gasData, 
+            result, 
+            lang,
+            duvalTriangleResult,
+            duvalPentagonResult
+        );
+        setExpertAdvice(advice || "No response");
+    } catch (e) {
+        setExpertAdvice(lang === 'vi' ? "Không thể kết nối với Chuyên gia AI." : "Could not connect to AI Expert.");
+    } finally {
+        setLoadingExpert(false);
+    }
   };
 
   return (
@@ -226,6 +260,60 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang }) 
             />
         </div>
       </div>
+
+      {/* EXPERT CONSULTATION SECTION - Moved to bottom */}
+      {activeTab === 'proposed' && (
+        <div className="bg-gradient-to-r from-slate-800 to-slate-800/80 p-6 rounded-2xl border border-emerald-500/30 shadow-lg shadow-emerald-500/5 mt-6">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-emerald-400 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                    {t.expertConsultation}
+                </h3>
+            </div>
+
+            {!expertAdvice ? (
+                <div className="flex flex-col items-center justify-center p-4">
+                    <p className="text-slate-400 text-sm mb-4 text-center">
+                        {t.expertDisclaimer}
+                    </p>
+                    <button 
+                        onClick={handleAskExpert}
+                        disabled={loadingExpert}
+                        className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition-all shadow-lg flex items-center gap-2"
+                    >
+                        {loadingExpert ? (
+                            <>
+                                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                {t.consulting}
+                            </>
+                        ) : (
+                            <>
+                                {t.askExpert}
+                            </>
+                        )}
+                    </button>
+                </div>
+            ) : (
+                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 animate-fade-in">
+                    <div className="prose prose-invert prose-sm max-w-none text-slate-300">
+                        {/* Simple Markdown Rendering */}
+                        {expertAdvice.split('\n').map((line, i) => {
+                            if (line.startsWith('###')) return <h3 key={i} className="text-emerald-300 font-bold mt-4 mb-2">{line.replace('###', '')}</h3>
+                            if (line.startsWith('##')) return <h3 key={i} className="text-emerald-300 font-bold mt-4 mb-2">{line.replace('##', '')}</h3>
+                            if (line.startsWith('**')) return <p key={i} className="font-bold my-1">{line.replace(/\*\*/g, '')}</p>
+                            if (line.startsWith('-')) return <li key={i} className="ml-4 mb-1">{line.replace('-', '')}</li>
+                            return <p key={i} className="mb-2">{line}</p>
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+      )}
     </div>
   );
 };

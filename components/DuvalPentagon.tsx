@@ -107,7 +107,7 @@ const DuvalPentagon: React.FC<DuvalPentagonProps> = ({ gasData, title, descripti
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto max-w-[360px] overflow-visible">
           
           {/* Background Outline: Light color for Dark mode */}
-          <path d={pentagonOutline} fill="none" stroke="#94a3b8" strokeWidth="2" />
+          <path d={pentagonOutline} fill="none" stroke="#334155" strokeWidth="2" />
 
           {/* ZONES */}
           {zones.map((z, i) => (
