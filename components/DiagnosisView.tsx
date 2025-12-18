@@ -194,10 +194,16 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
                     tick={{ fontSize: 12, fill: '#94a3b8' }}
                     width={40}
                 />
+                
+                {/* --- PHẦN ĐÃ SỬA --- */}
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
+                  contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
+                  itemStyle={{ color: '#e2e8f0' }} // <--- Dòng này chỉnh màu chữ "value : 142" thành màu sáng
+                  labelStyle={{ color: '#fff', fontWeight: 'bold' }} // <--- Dòng này đảm bảo tên khí (CH4) sáng và đậm
                   cursor={{fill: 'rgba(255,255,255,0.05)'}}
                 />
+                {/* ------------------- */}
+
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   {barData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
