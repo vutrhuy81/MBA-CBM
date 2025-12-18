@@ -36,7 +36,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">DGA Transformer</h2>
-          <p className="text-blue-100 text-sm mt-1">Hệ thống chẩn đoán lỗi máy biến áp</p>
+          <p className="text-blue-100 text-sm mt-1">Hệ thống đánh giá tình trạng máy biến áp</p>
         </div>
         
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
@@ -79,7 +79,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
           <div className="text-center pt-2">
             <p className="text-xs text-slate-500">
-              © 2024 Power Transformer Diagnostics System
+              © 2025 Power Transformer Diagnostics System by Vu Tran Huy
             </p>
           </div>
         </form>
@@ -89,3 +89,4 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 };
 
 export default LoginPage;
+
