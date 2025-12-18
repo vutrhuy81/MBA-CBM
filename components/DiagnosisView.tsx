@@ -11,6 +11,7 @@ import { getDuval1Analysis, getDuvalPentagonAnalysis } from '../utils/duvalMath'
 import DuvalTriangle from './DuvalTriangle';
 import DuvalPentagon from './DuvalPentagon';
 import { UserRole } from './LoginPage';
+import { addLog } from '../services/loggingService';
 
 interface DiagnosisViewProps {
   result: DiagnosisResult | null;
@@ -18,9 +19,10 @@ interface DiagnosisViewProps {
   lang: Language;
   activeTab: 'gemini' | 'proposed';
   role: UserRole;
+  user: string;
 }
 
-const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, activeTab, role }) => {
+const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, activeTab, role, user }) => {
   const [searchResult, setSearchResult] = useState<{ text: string, chunks?: GroundingChunk[] } | null>(null);
   const [searching, setSearching] = useState(false);
   
@@ -71,6 +73,7 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
     const res = await searchStandards(`transformer fault diagnosis for ${result.faultType} with current gas levels`, lang);
     setSearchResult(res);
     setSearching(false);
+    addLog(user, role, "Search", `Searched standards for ${result.faultType}`);
   };
 
   const handleAskExpert = async () => {
@@ -88,6 +91,9 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
             duvalPentagonResult
         );
         setExpertAdvice(advice || "No response");
+        
+        const gasInfo = `Input: H2:${gasData.H2}, CH4:${gasData.CH4}, C2H6:${gasData.C2H6}, C2H4:${gasData.C2H4}, C2H2:${gasData.C2H2}, CO:${gasData.CO}, CO2:${gasData.CO2}`;
+        addLog(user, role, t.actionExpert, `${gasInfo}. Expert Output Summary: ${advice?.substring(0, 150)}...`);
     } catch (e) {
         setExpertAdvice(lang === 'vi' ? "Không thể kết nối với Chuyên gia AI." : "Could not connect to AI Expert.");
     } finally {
@@ -194,16 +200,12 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
                     tick={{ fontSize: 12, fill: '#94a3b8' }}
                     width={40}
                 />
-                
-                {/* --- PHẦN ĐÃ SỬA --- */}
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
-                  itemStyle={{ color: '#e2e8f0' }} // <--- Dòng này chỉnh màu chữ "value : 142" thành màu sáng
-                  labelStyle={{ color: '#fff', fontWeight: 'bold' }} // <--- Dòng này đảm bảo tên khí (CH4) sáng và đậm
+                  itemStyle={{ color: '#e2e8f0' }}
+                  labelStyle={{ color: '#fff', fontWeight: 'bold' }}
                   cursor={{fill: 'rgba(255,255,255,0.05)'}}
                 />
-                {/* ------------------- */}
-
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   {barData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />

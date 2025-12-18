@@ -70,8 +70,8 @@ const ManualView: React.FC<ManualViewProps> = ({ lang }) => {
             <div className="text-center p-6 bg-blue-600/10 rounded-2xl border border-blue-500/20">
                 <p className="text-sm text-blue-300">
                     {lang === 'vi' 
-                        ? "Mọi thắc mắc kỹ thuật, vui lòng liên hệ bộ phận vận hành hoặc chuyên gia hệ thống (vutrhuy81@gmail.com-0988788977)." 
-                        : "For any technical questions, please contact the operations department or system experts (vutrhuy81@gmail.com-0988788977)."}
+                        ? "Mọi thắc mắc kỹ thuật, vui lòng liên hệ bộ phận vận hành hoặc chuyên gia hệ thống." 
+                        : "For any technical questions, please contact the operations department or system experts."}
                 </p>
             </div>
         </div>

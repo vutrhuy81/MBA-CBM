@@ -23,6 +23,35 @@ const LogView: React.FC<LogViewProps> = ({ lang }) => {
     }
   };
 
+  const handleExportExcel = () => {
+    if (logs.length === 0) return;
+
+    // Use BOM for Excel to open UTF-8 correctly
+    const BOM = "\uFEFF";
+    const headers = [t.logTime, t.logUser, "Role", t.logAction, t.logDetails];
+    
+    const escape = (val: string) => `"${(val || "").replace(/"/g, '""')}"`;
+    
+    const rows = logs.map(log => [
+      escape(log.timestamp),
+      escape(log.user),
+      escape(log.role),
+      escape(log.action),
+      escape(log.details)
+    ]);
+
+    const csvContent = BOM + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `nhat_ky_he_thong_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getActionColor = (action: string) => {
     if (action.includes(t.actionLogin)) return "text-blue-400";
     if (action.includes(t.actionGemini)) return "text-indigo-400";
@@ -41,14 +70,30 @@ const LogView: React.FC<LogViewProps> = ({ lang }) => {
            </svg>
            {t.logsTab} ({logs.length})
         </h3>
-        {logs.length > 0 && (
-          <button 
-            onClick={handleClear}
-            className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors uppercase border border-red-400/30 px-3 py-1.5 rounded-lg hover:bg-red-400/10"
-          >
-            {t.logClear}
-          </button>
-        )}
+        <div className="flex gap-2">
+          {logs.length > 0 && (
+            <>
+              <button 
+                onClick={handleExportExcel}
+                className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase border border-emerald-400/30 px-3 py-1.5 rounded-lg hover:bg-emerald-400/10 flex items-center gap-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {t.logExport}
+              </button>
+              <button 
+                onClick={handleClear}
+                className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors uppercase border border-red-400/30 px-3 py-1.5 rounded-lg hover:bg-red-400/10 flex items-center gap-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                {t.logClear}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl overflow-hidden">
@@ -80,7 +125,7 @@ const LogView: React.FC<LogViewProps> = ({ lang }) => {
                     <td className={`px-6 py-4 whitespace-nowrap font-bold ${getActionColor(log.action)}`}>
                       {log.action}
                     </td>
-                    <td className="px-6 py-4 text-xs max-w-xs truncate" title={log.details}>
+                    <td className="px-6 py-4 text-xs max-w-md whitespace-pre-wrap leading-relaxed" title={log.details}>
                       {log.details}
                     </td>
                   </tr>

@@ -5,14 +5,16 @@ import { translations } from '../constants/translations';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { getHealthIndexConsultation } from '../services/geminiService';
 import { UserRole } from './LoginPage';
+import { addLog } from '../services/loggingService';
 
 interface HealthIndexViewProps {
     result: HealthIndexResult | null;
     lang: Language;
     role: UserRole;
+    user: string;
 }
 
-const HealthIndexView: React.FC<HealthIndexViewProps> = ({ result, lang, role }) => {
+const HealthIndexView: React.FC<HealthIndexViewProps> = ({ result, lang, role, user }) => {
     const [expertAdvice, setExpertAdvice] = useState<string | null>(null);
     const [loadingExpert, setLoadingExpert] = useState(false);
     
@@ -31,6 +33,10 @@ const HealthIndexView: React.FC<HealthIndexViewProps> = ({ result, lang, role })
         try {
             const advice = await getHealthIndexConsultation(result, lang);
             setExpertAdvice(advice || "No response");
+            
+            // Log the expert consultation action with detail
+            const resultSummary = `HI=${result.finalHI}%, DGAF=${result.DGAF}, LEDTF=${result.LEDTF}, PIF=${result.PIF}`;
+            addLog(user, role, t.actionExpert, `Health Index Consulting. Output Data: ${resultSummary}. Expert Summary: ${advice?.substring(0, 150)}...`);
         } catch (e) {
             setExpertAdvice(lang === 'vi' ? "Không thể kết nối với Chuyên gia AI." : "Could not connect to AI Expert.");
         } finally {
