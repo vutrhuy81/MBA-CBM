@@ -1,13 +1,32 @@
-import { GasData, DiagnosisResult, Language } from "../types";
+import { GasData, DiagnosisResult, Language, ModelType } from "../types";
 
+// --- GBDT Interfaces ---
 interface FastApiResponse {
   ket_qua_loi: string;
   do_tin_cay: string;
   chi_tiet_xac_suat: number[];
 }
 
-// ⚠️ QUAN TRỌNG: Thứ tự này BẮT BUỘC phải giống y hệt biến LABELS trong Python
-// Python: LABELS = ["PD", "D1", "D2", "T1", "T2", "T3", "DT", "N"]
+// --- FastTreeOva Interfaces ---
+interface CPCLoginResponse {
+  teN_DNHAP: string;
+  mA_DVI: string;
+  token: string;
+}
+
+interface CPCPredictResponse {
+  h2: number;
+  cH4: number;
+  c2H6: number;
+  c2H4: number;
+  c2H2: number;
+  type: number;
+  features: number[];
+  predictedLabel: string;
+  score: number[];
+}
+
+// ⚠️ QUAN TRỌNG: Thứ tự này BẮT BUỘC phải giống y hệt biến LABELS trong Python (GBDT)
 const MODEL_LABELS_ORDER = ["PD", "D1", "D2", "T1", "T2", "T3", "DT", "N"];
 
 // Mapping from standard DGA Fault Codes to Readable Data with i18n support
@@ -82,10 +101,60 @@ const FAULT_MAPPING: Record<string, {
   },
 };
 
-export const diagnoseWithProposedModel = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
-  // ⚠️ Lưu ý: Cần cập nhật link này mỗi khi chạy lại Colab
-  //const API_URL = "https://kirstin-unnominated-wilber.ngrok-free.dev/predict";
+// --- FastTreeOva Helpers ---
+
+// SỬA: Đổi sang server proxy khác ổn định hơn (ThingProxy)
+//const PROXY_HOST = "https://thingproxy.freeboard.io/fetch/";
+
+const loginFastTree = async (): Promise<string> => {
+  // Kết hợp Proxy Host + URL đích
+  const LOGIN_URL = "https://smart.cpc.vn/ETCAPI/ETC/LoginWeb";
+  
+  const body = {
+    username: "admin",
+    passWord: "Admin@#2024", // Đảm bảo mật khẩu này đúng
+    ip: ""
+  };
+
+  const response = await fetch(LOGIN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+     // Thêm log để biết lỗi gì nếu login thất bại
+     console.error("Login Failed Status:", response.status);
+     throw new Error("Failed to login to CPC API");
+  }
+  const data: CPCLoginResponse = await response.json();
+  return data.token;
+};
+
+export const diagnoseWithProposedModel = async (
+  gasData: GasData, 
+  lang: Language,
+  modelType: ModelType = 'gbdt'
+): Promise<DiagnosisResult> => {
+  
+  if (modelType === 'fasttree') {
+    return diagnoseWithFastTree(gasData, lang);
+  } else {
+    return diagnoseWithGBDT(gasData, lang);
+  }
+};
+
+const diagnoseWithGBDT = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
   const API_URL = "https://vutrhuy81-dga-prediction-api.hf.space/predict";
+  
+  // Extract strictly the gases required for the GBDT model to avoid validation errors
+  const modelInput = {
+    H2: gasData.H2,
+    CH4: gasData.CH4,
+    C2H6: gasData.C2H6,
+    C2H4: gasData.C2H4,
+    C2H2: gasData.C2H2
+  };
 
   try {
     const response = await fetch(API_URL, {
@@ -94,13 +163,7 @@ export const diagnoseWithProposedModel = async (gasData: GasData, lang: Language
         "Content-Type": "application/json",
         "ngrok-skip-browser-warning": "true",
       },
-      body: JSON.stringify({
-        H2: gasData.H2,
-        CH4: gasData.CH4,
-        C2H6: gasData.C2H6,
-        C2H4: gasData.C2H4,
-        C2H2: gasData.C2H2
-      }),
+      body: JSON.stringify(modelInput),
     });
 
     if (!response.ok) {
@@ -109,43 +172,83 @@ export const diagnoseWithProposedModel = async (gasData: GasData, lang: Language
     }
 
     const data: FastApiResponse = await response.json();
-    return mapApiResponseToDiagnosis(data, lang);
+    return mapGBDTResponseToDiagnosis(data, lang);
 
   } catch (error: any) {
-    console.error("Proposed Model API Error:", error);
-    
-    // Bắt lỗi CORS hoặc sai Link Ngrok
+    console.error("GBDT API Error:", error);
     if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
         const msg = lang === 'vi' 
-            ? "Không thể kết nối tới AI Model. Vui lòng kiểm tra xem URL Ngrok còn hoạt động không."
-            : "Cannot connect to AI Model. Please check if the Ngrok URL is active.";
+            ? "Không thể kết nối tới mô hình GBDT. Vui lòng thử lại sau."
+            : "Cannot connect to GBDT Model. Please try again later.";
        throw new Error(msg); 
     }
-
-    throw new Error(error.message || "Could not connect to the Prediction Model API.");
+    throw error;
   }
 };
 
-export const mapApiResponseToDiagnosis = (data: FastApiResponse, lang: Language): DiagnosisResult => {
-    // 1. Process Fault Code
+const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
+  // SỬA: Áp dụng Proxy Host tương tự
+  const PREDICT_URL = "https://smart.cpc.vn/ETCAPI/ETC_AI/predict_Type";
+  
+  // FastTree might also require strict inputs, let's filter just in case
+  const modelInput = {
+    H2: gasData.H2,
+    CH4: gasData.CH4,
+    C2H6: gasData.C2H6,
+    C2H4: gasData.C2H4,
+    C2H2: gasData.C2H2
+  };
+
+  try {
+    // 1. Login to get token
+    const token = await loginFastTree();
+
+    // 2. Predict
+    const response = await fetch(PREDICT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify(modelInput)
+    });
+
+    if (!response.ok) {
+       console.error("Predict Failed Status:", response.status);
+       throw new Error(`CPC API Error: ${response.status}`);
+    }
+
+    const data: CPCPredictResponse = await response.json();
+    return mapFastTreeResponseToDiagnosis(data, lang);
+
+  } catch (error: any) {
+    console.error("FastTree API Error:", error);
+    
+    // Giữ nguyên logic hiển thị lỗi cũ
+    const msg = lang === 'vi' 
+      ? "Lỗi kết nối mô hình FastTree. Vui lòng thử lại."
+      : "Error connecting to FastTree model.";
+    throw new Error(msg);
+  }
+};
+
+// --- Mappers ---
+
+export const mapGBDTResponseToDiagnosis = (data: FastApiResponse, lang: Language): DiagnosisResult => {
     const faultCode = data.ket_qua_loi; 
     const faultInfo = FAULT_MAPPING[faultCode] || { 
       type: { en: `Unknown Fault Code (${faultCode})`, vi: `Mã lỗi lạ (${faultCode})` }, 
       severity: "Caution", 
-      desc: { 
-          en: "Model returned a classification code not in the standard mapping.",
-          vi: "Mô hình trả về mã phân loại không có trong danh sách chuẩn."
-      } 
+      desc: { en: "Unknown", vi: "Không xác định" } 
     };
 
-    // 2. Process Confidence
     const confidenceStr = String(data.do_tin_cay).replace('%', '');
     const confidenceVal = parseFloat(confidenceStr);
     let confidenceLevel: "High" | "Medium" | "Low" = "Low";
     if (confidenceVal >= 80) confidenceLevel = "High";
     else if (confidenceVal >= 50) confidenceLevel = "Medium";
 
-    // 3. Format Probability Distribution
+    // Distribution
     let probs = "";
     if (Array.isArray(data.chi_tiet_xac_suat) && data.chi_tiet_xac_suat.length === MODEL_LABELS_ORDER.length) {
         probs = data.chi_tiet_xac_suat
@@ -154,30 +257,69 @@ export const mapApiResponseToDiagnosis = (data: FastApiResponse, lang: Language)
             .sort((a, b) => b.val - a.val) 
             .map(item => `${item.label}: ${item.val.toFixed(1)}%`)
             .join(", ");
-    } else if (Array.isArray(data.chi_tiet_xac_suat)) {
-        probs = data.chi_tiet_xac_suat.map(p => (p * 100).toFixed(1) + "%").join(", ");
     }
 
-    const titlePrefix = lang === 'vi' ? "Dự đoán AI" : "AI Prediction";
-    const detailsPrefix = lang === 'vi' ? "Chi tiết" : "Details";
     const recText = lang === 'vi' 
-        ? `Mô hình AI phát hiện ${faultInfo.type.vi} với độ tin cậy ${data.do_tin_cay}.`
-        : `The AI model detected ${faultInfo.type.en} with ${data.do_tin_cay} confidence.`;
-    const ratioName = lang === 'vi' ? "Độ tin cậy AI" : "AI Confidence";
-    const ratioInterp = lang === 'vi' ? `Độ chắc chắn: ${data.do_tin_cay}` : `Model certainty: ${data.do_tin_cay}`;
+        ? `Mô hình GBDT phát hiện ${faultInfo.type.vi} với độ tin cậy ${data.do_tin_cay}.`
+        : `GBDT model detected ${faultInfo.type.en} with ${data.do_tin_cay} confidence.`;
 
     return {
       faultType: faultInfo.type[lang],
       confidence: confidenceLevel,
       severity: faultInfo.severity,
-      description: `${titlePrefix}: [${faultCode}] - ${faultInfo.desc[lang]}\n${detailsPrefix}: ${probs}`,
+      description: `GBDT Result: [${faultCode}]\nDetails: ${probs}`,
       recommendation: recText,
       keyGasRatios: [
         {
-          ratioName: ratioName,
+          ratioName: "AI Confidence",
           value: confidenceVal,
-          interpretation: ratioInterp
+          interpretation: `${data.do_tin_cay}`
         }
       ]
     };
+};
+
+export const mapFastTreeResponseToDiagnosis = (data: CPCPredictResponse, lang: Language): DiagnosisResult => {
+    const faultCode = data.predictedLabel;
+    const faultInfo = FAULT_MAPPING[faultCode] || { 
+      type: { en: `Unknown Fault (${faultCode})`, vi: `Mã lỗi lạ (${faultCode})` }, 
+      severity: "Caution", 
+      desc: { en: "Unknown", vi: "Không xác định" } 
+    };
+
+    // Calculate max score as confidence
+    let maxScore = 0;
+    if (data.score && Array.isArray(data.score)) {
+      maxScore = Math.max(...data.score);
+    }
+    const confidencePercent = (maxScore * 100).toFixed(2) + "%";
+    
+    let confidenceLevel: "High" | "Medium" | "Low" = "Low";
+    if (maxScore >= 0.8) confidenceLevel = "High";
+    else if (maxScore >= 0.5) confidenceLevel = "Medium";
+
+    const recText = lang === 'vi' 
+        ? `Mô hình FastTree phát hiện ${faultInfo.type.vi} (${confidencePercent}).`
+        : `FastTree model detected ${faultInfo.type.en} (${confidencePercent}).`;
+
+    return {
+      faultType: faultInfo.type[lang],
+      confidence: confidenceLevel,
+      severity: faultInfo.severity,
+      description: `FastTreeOva Result: [${faultCode}] - ${faultInfo.desc[lang]}`,
+      recommendation: recText,
+      keyGasRatios: [
+        {
+          ratioName: "Score (Max)",
+          value: maxScore * 100,
+          interpretation: confidencePercent
+        }
+      ]
+    };
+};
+
+// Helper for generic mapping (Used by Demo button)
+export const mapApiResponseToDiagnosis = (data: any, lang: Language): DiagnosisResult => {
+    // Default fallback to GBDT mapper for demo/generic purposes
+    return mapGBDTResponseToDiagnosis(data as FastApiResponse, lang);
 }
