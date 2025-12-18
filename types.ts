@@ -3,7 +3,7 @@ export type Language = 'en' | 'vi';
 
 export type ModelType = 'gbdt' | 'fasttree';
 
-export type TabType = 'gemini' | 'proposed' | 'health' | 'manual';
+export type TabType = 'gemini' | 'proposed' | 'health' | 'manual' | 'logs';
 
 export interface GasData {
   H2: number;
@@ -62,4 +62,13 @@ export interface HealthIndexResult {
       weight: number;
       weightedScore: number;
   }[];
+}
+
+export interface LogEntry {
+  id: string;
+  user: string;
+  role: string;
+  action: string;
+  details: string;
+  timestamp: string;
 }

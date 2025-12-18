@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import LoginPage, { UserRole } from './components/LoginPage';
 import MainPage from './MainPage';
+import { addLog } from './services/loggingService';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -24,6 +25,9 @@ const App: React.FC = () => {
     setCurrentRole(role);
     localStorage.setItem('dga_user', username);
     localStorage.setItem('dga_role', role);
+    
+    // Ghi log đăng nhập
+    addLog(username, role, role === 'Admin' ? 'Login (Admin)' : 'Login (Guest)', `User logged into the system.`);
   };
 
   const handleLogout = () => {

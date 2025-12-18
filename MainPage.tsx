@@ -5,12 +5,14 @@ import GasInput from './components/GasInput';
 import DiagnosisView from './components/DiagnosisView';
 import HealthIndexView from './components/HealthIndexView';
 import ManualView from './components/ManualView';
+import LogView from './components/LogView';
 import { diagnoseTransformer } from './services/geminiService';
 import { diagnoseWithProposedModel, mapApiResponseToDiagnosis, mapFastTreeResponseToDiagnosis } from './services/proposedModelService';
 import { calculateHealthIndex } from './services/healthIndexService';
 import { translations } from './constants/translations';
 import { getDuval1Analysis, getDuvalPentagonAnalysis } from './utils/duvalMath';
 import { UserRole } from './components/LoginPage';
+import { addLog } from './services/loggingService';
 
 interface DiagnosisHistoryItem {
   gas: GasData;
@@ -28,8 +30,8 @@ interface MainPageProps {
 
 const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
   const isGuest = role === 'Guest';
+  const isAdmin = role === 'Admin';
   
-  // Default to 'proposed' if user is guest, otherwise 'gemini'
   const [activeTab, setActiveTab] = useState<TabType>(isGuest ? 'proposed' : 'gemini');
   const [lang, setLang] = useState<Language>('vi'); 
   const [selectedModel, setSelectedModel] = useState<ModelType>('gbdt');
@@ -55,9 +57,9 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
 
   const t = translations[lang];
 
-  // Prevent accessing Gemini if guest (in case of state manipulation)
   useEffect(() => {
-    if (isGuest && activeTab === 'gemini') {
+    // RBAC: Redirect guests away from restricted tabs
+    if (isGuest && (activeTab === 'gemini' || activeTab === 'logs')) {
         setActiveTab('proposed');
     }
   }, [isGuest, activeTab]);
@@ -89,10 +91,12 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
       if (activeTab === 'gemini') {
         const data = await diagnoseTransformer(gasData, lang);
         setResult(data);
+        addLog(user, role, t.actionGemini, `Performed AI diagnosis. Result: ${data.faultType}`);
       } else if (activeTab === 'proposed') {
         const data = await diagnoseWithProposedModel(gasData, lang, selectedModel);
         addToHistory(gasData, data);
         setResult(data);
+        addLog(user, role, t.actionProposed, `Used ${selectedModel.toUpperCase()} model. Predicted: ${data.faultType}`);
       } else if (activeTab === 'health') {
         let gbdtFault = "N";
         try {
@@ -106,9 +110,11 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
         }
         const hIndex = calculateHealthIndex(gasData, gbdtFault);
         setHealthResult(hIndex);
+        addLog(user, role, t.actionHealth, `Calculated HI: ${hIndex.finalHI}%. Condition: ${hIndex.condition}`);
       }
     } catch (err: any) {
       setError(err.message || "Failed to run diagnosis.");
+      addLog(user, role, "Error", `Action failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -118,6 +124,7 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
     if (activeTab === 'health') {
         const mockHI = calculateHealthIndex(gasData, "D2");
         setHealthResult(mockHI);
+        addLog(user, role, t.actionHealth, `Calculated HI (Demo): ${mockHI.finalHI}%`);
     } else if (activeTab === 'proposed' && selectedModel === 'fasttree') {
         const mockResponse = {
             h2: gasData.H2 || 100, cH4: gasData.CH4 || 100, c2H6: gasData.C2H6 || 11,
@@ -126,6 +133,7 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
         };
         const mockDiagnosis = mapFastTreeResponseToDiagnosis(mockResponse, lang);
         setResult(mockDiagnosis);
+        addLog(user, role, t.actionProposed, `Simulated FastTree success.`);
     } else {
         const mockResponse = {
             ket_qua_loi: "D2", do_tin_cay: "98.94%",
@@ -133,12 +141,14 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
         };
         const mockDiagnosis = mapApiResponseToDiagnosis(mockResponse, lang);
         setResult(mockDiagnosis);
+        addLog(user, role, "Demo", `Simulated prediction success.`);
     }
     setError(null);
   };
 
   const handleDownloadCsv = () => {
     if (history.length === 0) return;
+    addLog(user, role, "Export", `Downloaded CSV history (${history.length} records).`);
     const BOM = "\uFEFF";
     const headers = ["H2", "CH4", "C2H6", "C2H4", "C2H2", "Fault", "Severity", "Confidence", "Analysis", "Rec", "Time", "Duval T1", "Duval P1"];
     const safeStr = (str: string) => `"${(str || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`;
@@ -165,6 +175,7 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
           case 'proposed': return { title: t.introProposed, desc: t.introProposedDesc };
           case 'health': return { title: t.introHealth, desc: t.introHealthDesc };
           case 'manual': return { title: t.introManual, desc: t.introManualDesc };
+          case 'logs': return { title: t.introLogs, desc: t.introLogsDesc };
           default: return { title: '', desc: '' };
       }
   };
@@ -209,6 +220,9 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
                 <button onClick={() => setActiveTab('proposed')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'proposed' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>{t.proposedTab}</button>
                 <button onClick={() => setActiveTab('health')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'health' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>{t.healthIndexTab}</button>
                 <button onClick={() => setActiveTab('manual')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'manual' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>{t.manualTab}</button>
+                {isAdmin && (
+                  <button onClick={() => setActiveTab('logs')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'logs' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>{t.logsTab}</button>
+                )}
             </div>
             <button 
                 onClick={onLogout}
@@ -232,10 +246,11 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
 
           {activeTab === 'manual' ? (
               <ManualView lang={lang} />
+          ) : activeTab === 'logs' ? (
+              <LogView lang={lang} />
           ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-4">
-                  {/* Handle the case where guest tries to see input for gemini (though tab is hidden) */}
                   {activeTab === 'gemini' && isGuest ? (
                       <div className="bg-red-500/10 border border-red-500/50 p-6 rounded-2xl text-center">
                           <h3 className="text-red-400 font-bold mb-2">{t.accessDenied}</h3>
@@ -244,7 +259,7 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
                   ) : (
                     <GasInput 
                         gasData={gasData} setGasData={setGasData} onDiagnose={handleDiagnose}
-                        loading={loading} activeTab={activeTab} lang={lang}
+                        loading={loading} activeTab={activeTab as TabType} lang={lang}
                         selectedModel={selectedModel} onSelectModel={setSelectedModel}
                     />
                   )}
