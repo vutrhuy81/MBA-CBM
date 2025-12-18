@@ -29,7 +29,7 @@ export const translations = {
     inputTitleHealth: "Input All Gas Concentrations",
     loadExample: "Load Example Data:",
     loadTest: "Load Model Test Data:",
-    runGemini: "Run  Diagnosis",
+    runGemini: "Run AI Diagnosis",
     runProposed: "Run model prediction",
     runHealth: "Calculate Health Index",
     processing: "Processing...",
@@ -95,16 +95,22 @@ export const translations = {
     manualStep1: "Step 1: Input Data",
     manualStep1Desc: "Enter gas concentrations (H2, CH4, C2H6, C2H4, C2H2...) in ppm. You can use 'Example Data' for quick testing.",
     manualStep2: "Step 2: Choose Function",
-    manualStep2Desc: "Select one of the 3 tabs: AI Model, Proposed Model (GBDT/FastTree), or Health Index.",
+    manualStep2Desc: "Select one of the 3 tabs: AI Model (Gemini), Proposed Model (GBDT/FastTree), or Health Index.",
     manualStep3: "Step 3: Analyze",
     manualStep3Desc: "Click the 'Run' button. The system will process and display results, charts, and recommendations.",
     manualFunctions: "Main Functions",
-    func1Title: "AI Model",
+    func1Title: "AI Model (Gemini)",
     func1Desc: "Deep analysis using Generative AI, combining international standards (Rogers, IEC, Duval).",
     func2Title: "Proposed Model",
     func2Desc: "Fast and accurate fault diagnosis using GBDT and FastTreeOva machine learning models.",
     func3Title: "Health Index",
-    func3Desc: "Comprehensive assessment of transformer health via DGAF, LEDTF, and PIF indices."
+    func3Desc: "Comprehensive assessment of transformer health via DGAF, LEDTF, and PIF indices.",
+
+    // RBAC
+    roleAdmin: "Admin",
+    roleGuest: "Guest",
+    accessDenied: "Access Denied",
+    accessDeniedDesc: "Your account does not have permission to use the AI Model function. Please contact the administrator."
   },
   vi: {
     appTitle: "Mô hình hóa tình trạng MBA",
@@ -201,15 +207,21 @@ export const translations = {
     manualStep1: "Bước 1: Nhập dữ liệu",
     manualStep1Desc: "Nhập nồng độ các loại khí hòa tan (H2, CH4, C2H6, C2H4, C2H2...) đơn vị ppm. Có thể dùng 'Dữ liệu mẫu' để thử nhanh.",
     manualStep2: "Bước 2: Chọn chức năng",
-    manualStep2Desc: "Chọn một trong 3 tab: Mô hình AI, Mô hình đề xuất (GBDT/FastTree), hoặc Health Index.",
+    manualStep2Desc: "Chọn một trong 3 tab: Mô hình AI (Gemini), Mô hình đề xuất (GBDT/FastTree), hoặc Health Index.",
     manualStep3: "Bước 3: Phân tích",
     manualStep3Desc: "Nhấn nút 'Chạy'. Hệ thống sẽ xử lý và hiển thị kết quả chẩn đoán, biểu đồ và khuyến nghị.",
     manualFunctions: "Các chức năng chính",
-    func1Title: "Mô hình AI",
+    func1Title: "Mô hình AI (Gemini)",
     func1Desc: "Phân tích thông minh bằng Generative AI, kết hợp các tiêu chuẩn quốc tế (Rogers, IEC, Duval).",
     func2Title: "Mô hình đề xuất",
     func2Desc: "Chẩn đoán lỗi nhanh và chính xác bằng các mô hình học máy GBDT và FastTreeOva.",
     func3Title: "Health Index",
-    func3Desc: "Đánh giá tổng quát sức khỏe máy biến áp qua các chỉ số DGAF, LEDTF, PIF."
+    func3Desc: "Đánh giá tổng quát sức khỏe máy biến áp qua các chỉ số DGAF, LEDTF, PIF.",
+
+    // RBAC
+    roleAdmin: "Quản trị viên",
+    roleGuest: "Khách",
+    accessDenied: "Truy cập bị từ chối",
+    accessDeniedDesc: "Tài khoản của bạn không có quyền sử dụng chức năng Mô hình AI. Vui lòng liên hệ quản trị viên."
   }
 };
