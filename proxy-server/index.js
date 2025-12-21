@@ -3,7 +3,7 @@ const cors = require('cors');
 const axios = require('axios');
 const https = require('https'); // <--- QUAN TRỌNG: Thư viện để xử lý SSL
 const app = express();
-const PORT = 3000;
+const PORT = 8080;
 
 // 1. Cấu hình CORS: Cho phép tất cả nguồn truy cập
 app.use(cors({ origin: '*' })); 
@@ -91,3 +91,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Proxy Server đang chạy tại cổng ${PORT}`);
 });
+
