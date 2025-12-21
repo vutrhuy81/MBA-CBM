@@ -29,7 +29,6 @@ interface CPCPredictResponse {
 // ⚠️ QUAN TRỌNG: Thứ tự này BẮT BUỘC phải giống y hệt biến LABELS trong Python (GBDT)
 const MODEL_LABELS_ORDER = ["PD", "D1", "D2", "T1", "T2", "T3", "DT", "N"];
 
-// Mapping from standard DGA Fault Codes to Readable Data with i18n support
 const FAULT_MAPPING: Record<string, { 
     type: { en: string; vi: string }; 
     severity: "Normal" | "Caution" | "Critical"; 
@@ -38,82 +37,56 @@ const FAULT_MAPPING: Record<string, {
   "N": { 
     type: { en: "Normal", vi: "Bình thường" },
     severity: "Normal", 
-    desc: { 
-        en: "Transformer condition appears normal.",
-        vi: "Tình trạng máy biến áp có vẻ bình thường."
-    }
+    desc: { en: "Transformer condition appears normal.", vi: "Tình trạng máy biến áp có vẻ bình thường." }
   },
   "PD": { 
     type: { en: "Partial Discharge", vi: "Phóng điện cục bộ" },
     severity: "Caution", 
-    desc: {
-        en: "Low energy discharges (Corona) detected.",
-        vi: "Phát hiện phóng điện năng lượng thấp (Corona)."
-    }
+    desc: { en: "Low energy discharges (Corona) detected.", vi: "Phát hiện phóng điện năng lượng thấp (Corona)." }
   },
   "D1": { 
     type: { en: "Low Energy Discharge", vi: "Phóng điện năng lượng thấp" },
     severity: "Caution", 
-    desc: {
-        en: "Discharges of low energy (Sparking) detected.",
-        vi: "Phát hiện phóng điện năng lượng thấp (Tia lửa điện)."
-    }
+    desc: { en: "Discharges of low energy (Sparking) detected.", vi: "Phát hiện phóng điện năng lượng thấp (Tia lửa điện)." }
   },
   "D2": { 
     type: { en: "High Energy Discharge", vi: "Phóng điện năng lượng cao" },
     severity: "Critical", 
-    desc: {
-        en: "Discharges of high energy (Arcing) detected. Immediate attention recommended.",
-        vi: "Phát hiện phóng điện năng lượng cao (Hồ quang). Cần chú ý ngay lập tức."
-    }
+    desc: { en: "Discharges of high energy (Arcing) detected. Immediate attention recommended.", vi: "Phát hiện phóng điện năng lượng cao (Hồ quang). Cần chú ý ngay lập tức." }
   },
   "T1": { 
     type: { en: "Thermal Fault < 300°C", vi: "Lỗi nhiệt < 300°C" },
     severity: "Caution", 
-    desc: {
-        en: "Low range thermal fault detected.",
-        vi: "Phát hiện lỗi nhiệt độ thấp."
-    }
+    desc: { en: "Low range thermal fault detected.", vi: "Phát hiện lỗi nhiệt độ thấp." }
   },
   "T2": { 
     type: { en: "Thermal Fault 300-700°C", vi: "Lỗi nhiệt 300-700°C" },
     severity: "Caution", 
-    desc: {
-        en: "Medium range thermal fault detected.",
-        vi: "Phát hiện lỗi nhiệt độ trung bình."
-    }
+    desc: { en: "Medium range thermal fault detected.", vi: "Phát hiện lỗi nhiệt độ trung bình." }
   },
   "T3": { 
     type: { en: "Thermal Fault > 700°C", vi: "Lỗi nhiệt > 700°C" },
     severity: "Critical", 
-    desc: {
-        en: "High range thermal fault detected. Risk of insulation degradation.",
-        vi: "Phát hiện lỗi nhiệt độ cao. Nguy cơ suy giảm cách điện."
-    }
+    desc: { en: "High range thermal fault detected. Risk of insulation degradation.", vi: "Phát hiện lỗi nhiệt độ cao. Nguy cơ suy giảm cách điện." }
   },
   "DT": { 
     type: { en: "Mix Thermal & Discharge", vi: "Hỗn hợp Nhiệt & Phóng điện" },
     severity: "Critical", 
-    desc: {
-        en: "Combined thermal and electrical fault detected. Complex failure mode.",
-        vi: "Phát hiện lỗi kết hợp nhiệt và điện. Chế độ lỗi phức tạp."
-    }
+    desc: { en: "Combined thermal and electrical fault detected. Complex failure mode.", vi: "Phát hiện lỗi kết hợp nhiệt và điện. Chế độ lỗi phức tạp." }
   },
 };
 
-// --- FastTreeOva Helpers ---
-
-// SỬA: Địa chỉ Server Proxy của bạn (Lấy từ Coolify Logs)
-// Lưu ý: Nếu sau này bạn gắn domain api.mba-cbm.vn thì thay vào đây
-const PROXY_HOST = "http://ucs0o8kwss0wkkok8ocg4sko.103.82.26.228.sslip.io";
+// --- CẤU HÌNH PROXY ---
+// Đây là địa chỉ Backend Proxy bạn đã dựng trên Coolify
+const PROXY_HOST = "https://api.powertransformer.vn";
 
 const loginFastTree = async (): Promise<string> => {
-  // SỬA: Gọi qua Proxy (/proxy/login) thay vì gọi trực tiếp
+  // GỌI QUA PROXY: Thay vì gọi trực tiếp CPC, ta gọi vào Backend của mình
   const LOGIN_URL = `${PROXY_HOST}/proxy/login`;
   
   const body = {
     username: "admin",
-    passWord: "Admin@#2024",
+    passWord: "Admin@#2024", 
     ip: ""
   };
 
@@ -136,7 +109,6 @@ export const diagnoseWithProposedModel = async (
   lang: Language,
   modelType: ModelType = 'gbdt'
 ): Promise<DiagnosisResult> => {
-  
   if (modelType === 'fasttree') {
     return diagnoseWithFastTree(gasData, lang);
   } else {
@@ -186,7 +158,7 @@ const diagnoseWithGBDT = async (gasData: GasData, lang: Language): Promise<Diagn
 };
 
 const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
-  // SỬA: Gọi qua Proxy (/proxy/predict) thay vì gọi trực tiếp
+  // GỌI QUA PROXY: Thay vì gọi trực tiếp CPC
   const PREDICT_URL = `${PROXY_HOST}/proxy/predict`;
   
   const modelInput = {
@@ -221,7 +193,6 @@ const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<D
 
   } catch (error: any) {
     console.error("FastTree API Error:", error);
-    
     const msg = lang === 'vi' 
       ? "Lỗi kết nối mô hình FastTree. Vui lòng kiểm tra lại Proxy hoặc kết nối mạng."
       : "Error connecting to FastTree model via Proxy.";
@@ -229,8 +200,7 @@ const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<D
   }
 };
 
-// --- Mappers ---
-
+// ... (Phần Mappers giữ nguyên)
 export const mapGBDTResponseToDiagnosis = (data: FastApiResponse, lang: Language): DiagnosisResult => {
     const faultCode = data.ket_qua_loi; 
     const faultInfo = FAULT_MAPPING[faultCode] || { 
@@ -245,7 +215,6 @@ export const mapGBDTResponseToDiagnosis = (data: FastApiResponse, lang: Language
     if (confidenceVal >= 80) confidenceLevel = "High";
     else if (confidenceVal >= 50) confidenceLevel = "Medium";
 
-    // Distribution
     let probs = "";
     if (Array.isArray(data.chi_tiet_xac_suat) && data.chi_tiet_xac_suat.length === MODEL_LABELS_ORDER.length) {
         probs = data.chi_tiet_xac_suat
@@ -284,7 +253,6 @@ export const mapFastTreeResponseToDiagnosis = (data: CPCPredictResponse, lang: L
       desc: { en: "Unknown", vi: "Không xác định" } 
     };
 
-    // Calculate max score as confidence
     let maxScore = 0;
     if (data.score && Array.isArray(data.score)) {
       maxScore = Math.max(...data.score);
@@ -315,8 +283,6 @@ export const mapFastTreeResponseToDiagnosis = (data: CPCPredictResponse, lang: L
     };
 };
 
-// Helper for generic mapping (Used by Demo button)
 export const mapApiResponseToDiagnosis = (data: any, lang: Language): DiagnosisResult => {
-    // Default fallback to GBDT mapper for demo/generic purposes
     return mapGBDTResponseToDiagnosis(data as FastApiResponse, lang);
 }
