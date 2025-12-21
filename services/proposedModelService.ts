@@ -103,16 +103,17 @@ const FAULT_MAPPING: Record<string, {
 
 // --- FastTreeOva Helpers ---
 
-// SỬA: Đổi sang server proxy khác ổn định hơn (ThingProxy)
-//const PROXY_HOST = "https://thingproxy.freeboard.io/fetch/";
+// SỬA: Địa chỉ Server Proxy của bạn (Lấy từ Coolify Logs)
+// Lưu ý: Nếu sau này bạn gắn domain api.mba-cbm.vn thì thay vào đây
+const PROXY_HOST = "http://ucs0o8kwss0wkkok8ocg4sko.103.82.26.228.sslip.io";
 
 const loginFastTree = async (): Promise<string> => {
-  // Kết hợp Proxy Host + URL đích
-  const LOGIN_URL = "https://smart.cpc.vn/ETCAPI/ETC/LoginWeb";
+  // SỬA: Gọi qua Proxy (/proxy/login) thay vì gọi trực tiếp
+  const LOGIN_URL = `${PROXY_HOST}/proxy/login`;
   
   const body = {
     username: "admin",
-    passWord: "Admin@#2024", // Đảm bảo mật khẩu này đúng
+    passWord: "Admin@#2024",
     ip: ""
   };
 
@@ -123,9 +124,8 @@ const loginFastTree = async (): Promise<string> => {
   });
 
   if (!response.ok) {
-     // Thêm log để biết lỗi gì nếu login thất bại
      console.error("Login Failed Status:", response.status);
-     throw new Error("Failed to login to CPC API");
+     throw new Error("Failed to login to CPC API via Proxy");
   }
   const data: CPCLoginResponse = await response.json();
   return data.token;
@@ -147,7 +147,6 @@ export const diagnoseWithProposedModel = async (
 const diagnoseWithGBDT = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
   const API_URL = "https://vutrhuy81-dga-prediction-api.hf.space/predict";
   
-  // Extract strictly the gases required for the GBDT model to avoid validation errors
   const modelInput = {
     H2: gasData.H2,
     CH4: gasData.CH4,
@@ -187,10 +186,9 @@ const diagnoseWithGBDT = async (gasData: GasData, lang: Language): Promise<Diagn
 };
 
 const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
-  // SỬA: Áp dụng Proxy Host tương tự
-  const PREDICT_URL = "https://smart.cpc.vn/ETCAPI/ETC_AI/predict_Type";
+  // SỬA: Gọi qua Proxy (/proxy/predict) thay vì gọi trực tiếp
+  const PREDICT_URL = `${PROXY_HOST}/proxy/predict`;
   
-  // FastTree might also require strict inputs, let's filter just in case
   const modelInput = {
     H2: gasData.H2,
     CH4: gasData.CH4,
@@ -203,7 +201,7 @@ const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<D
     // 1. Login to get token
     const token = await loginFastTree();
 
-    // 2. Predict
+    // 2. Predict (Gửi token kèm header, Proxy sẽ chuyển tiếp)
     const response = await fetch(PREDICT_URL, {
       method: "POST",
       headers: {
@@ -215,7 +213,7 @@ const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<D
 
     if (!response.ok) {
        console.error("Predict Failed Status:", response.status);
-       throw new Error(`CPC API Error: ${response.status}`);
+       throw new Error(`CPC API Error via Proxy: ${response.status}`);
     }
 
     const data: CPCPredictResponse = await response.json();
@@ -224,10 +222,9 @@ const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<D
   } catch (error: any) {
     console.error("FastTree API Error:", error);
     
-    // Giữ nguyên logic hiển thị lỗi cũ
     const msg = lang === 'vi' 
-      ? "Lỗi kết nối mô hình FastTree. Vui lòng thử lại."
-      : "Error connecting to FastTree model.";
+      ? "Lỗi kết nối mô hình FastTree. Vui lòng kiểm tra lại Proxy hoặc kết nối mạng."
+      : "Error connecting to FastTree model via Proxy.";
     throw new Error(msg);
   }
 };
