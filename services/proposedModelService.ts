@@ -77,11 +77,9 @@ const FAULT_MAPPING: Record<string, {
 };
 
 // --- CẤU HÌNH PROXY ---
-// Đây là địa chỉ Backend Proxy bạn đã dựng trên Coolify
 const PROXY_HOST = "https://api.powertransformer.vn";
 
 const loginFastTree = async (): Promise<string> => {
-  // GỌI QUA PROXY: Thay vì gọi trực tiếp CPC, ta gọi vào Backend của mình
   const LOGIN_URL = `${PROXY_HOST}/proxy/login`;
   
   const body = {
@@ -104,21 +102,8 @@ const loginFastTree = async (): Promise<string> => {
   return data.token;
 };
 
-export const diagnoseWithProposedModel = async (
-  gasData: GasData, 
-  lang: Language,
-  modelType: ModelType = 'gbdt'
-): Promise<DiagnosisResult> => {
-  if (modelType === 'fasttree') {
-    return diagnoseWithFastTree(gasData, lang);
-  } else {
-    return diagnoseWithGBDT(gasData, lang);
-  }
-};
-
 /**
  * Kiểm tra xem các khí có vượt ngưỡng cảnh báo sớm hay không.
- * Ngưỡng: H2>50, CH4>30, C2H6>20, C2H4>60, C2H2>0, CO>400, CO2>3800
  */
 const isAboveThreshold = (gas: GasData): boolean => {
     return (
@@ -132,6 +117,7 @@ const isAboveThreshold = (gas: GasData): boolean => {
     );
 };
 
+// --- CHỈ GIỮ LẠI MỘT HÀM EXPORT DUY NHẤT Ở ĐÂY ---
 export const diagnoseWithProposedModel = async (
   gasData: GasData, 
   lang: Language,
@@ -204,7 +190,6 @@ const diagnoseWithGBDT = async (gasData: GasData, lang: Language): Promise<Diagn
 };
 
 const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
-  // GỌI QUA PROXY: Thay vì gọi trực tiếp CPC
   const PREDICT_URL = `${PROXY_HOST}/proxy/predict`;
   
   const modelInput = {
@@ -216,10 +201,8 @@ const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<D
   };
 
   try {
-    // 1. Login to get token
     const token = await loginFastTree();
 
-    // 2. Predict (Gửi token kèm header, Proxy sẽ chuyển tiếp)
     const response = await fetch(PREDICT_URL, {
       method: "POST",
       headers: {
@@ -246,7 +229,7 @@ const diagnoseWithFastTree = async (gasData: GasData, lang: Language): Promise<D
   }
 };
 
-// ... (Phần Mappers giữ nguyên)
+// ... (Các hàm map giữ nguyên như cũ)
 export const mapGBDTResponseToDiagnosis = (data: FastApiResponse, lang: Language): DiagnosisResult => {
     const faultCode = data.ket_qua_loi; 
     const faultInfo = FAULT_MAPPING[faultCode] || { 
