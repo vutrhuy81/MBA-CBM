@@ -266,7 +266,7 @@ export const mapGBDTResponseToDiagnosis = (data: FastApiResponse, lang: Language
       recommendation: recText,
       keyGasRatios: [
         {
-          ratioName: "Confidence",
+          ratioName: "Score (Max)",
           value: confidenceVal,
           interpretation: `${data.do_tin_cay}`
         }
