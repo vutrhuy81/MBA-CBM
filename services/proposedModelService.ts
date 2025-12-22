@@ -27,7 +27,7 @@ interface CPCPredictResponse {
 }
 
 // ⚠️ QUAN TRỌNG: Thứ tự này BẮT BUỘC phải giống y hệt biến LABELS trong Python (GBDT)
-const MODEL_LABELS_ORDER = ["PD", "D1", "D2", "T1", "T2", "T3", "DT", "N"];
+const MODEL_LABELS_ORDER = ["DT", "T1", "T3", "N", "D2", "T2", "PD", "D1"];
 
 const FAULT_MAPPING: Record<string, { 
     type: { en: string; vi: string }; 
@@ -237,7 +237,7 @@ export const mapGBDTResponseToDiagnosis = (data: FastApiResponse, lang: Language
       recommendation: recText,
       keyGasRatios: [
         {
-          ratioName: "AI Confidence",
+          ratioName: "Confidence",
           value: confidenceVal,
           interpretation: `${data.do_tin_cay}`
         }
