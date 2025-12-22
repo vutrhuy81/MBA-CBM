@@ -13,8 +13,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
 
   const validUsers: Record<string, { pass: string; role: UserRole }> = {
-    'admin': { pass: '123456', role: 'Admin' },
-    'manager': { pass: '123456', role: 'Admin' },
+    'admin': { pass: 'Admin#123456', role: 'Admin' },
+    'manager': { pass: 'Manager#123456', role: 'Admin' },
     'user1': { pass: '123456', role: 'Guest' },
     'user2': { pass: '123456', role: 'Guest' }
   };
@@ -81,10 +81,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           </button>
 
           <div className="text-center pt-2 space-y-1">
-             <div className="flex justify-center gap-4 text-[10px] text-slate-500 uppercase font-bold tracking-wider">
-                <span>Admin: admin, manager</span>
-                <span>Guest: user1, user2</span>
-             </div>
             <p className="text-xs text-slate-600">
               © 2025 Power Transformer Diagnostics System by Vu Tran Huy
             </p>
