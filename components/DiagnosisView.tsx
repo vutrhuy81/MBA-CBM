@@ -100,7 +100,9 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
         setLoadingExpert(false);
     }
   };
-
+  // Đường dẫn hình ảnh cục bộ (Xử lý khoảng trắng bằng %20)
+  const ieeeImagePath = "images/IEEE%20Std%20C57.104-2019.png";
+  
   return (
     <div className="flex flex-col gap-6 animate-fade-in-up">
       {/* Top Cards: Classification */}
@@ -180,9 +182,6 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
         </div>
       )}
       
-      // Đường dẫn hình ảnh cục bộ (Xử lý khoảng trắng bằng %20)
-      const ieeeImagePath = "images/IEEE%20Std%20C57.104-2019.png";
-
       {/* IEEE Reference - NOW ABOVE BOTH CHARTS */}
       <div className="bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-700 shadow-lg flex flex-col w-full">
         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -193,11 +192,11 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
         </h4>
         <div className="bg-slate-900 rounded-xl p-4 border border-slate-700/50 flex justify-center">
             <img 
-                //src={ieeeImagePath} 
+                src={ieeeImagePath} 
                 alt="IEEE Std C57.104-2019 Fault Pattern" 
                 className="max-w-full h-auto rounded-lg brightness-90 hover:brightness-100 transition-all cursor-zoom-in shadow-inner"
                 title="Click to enlarge"
-                //onClick={() => window.open(ieeeImagePath.replace(/%20/g, ' '), "_blank")}
+                onClick={() => window.open(ieeeImagePath.replace(/%20/g, ' '), "_blank")}
                 onError={(e) => {
                   console.error("Failed to load local image, falling back to CDN");
                   (e.target as HTMLImageElement).src = "https://static.wixstatic.com/media/5056cb_00ade90b808f416cbebc684876936775~mv2.png/v1/fill/w_980,h_537,al_c,q_90,usm_0.66_1.00_0.01,enc_avif,quality_auto/5056cb_00ade90b808f416cbebc684876936775~mv2.png";
