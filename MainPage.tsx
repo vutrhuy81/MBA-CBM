@@ -83,8 +83,31 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
     return `Input: H2:${gas.H2}, CH4:${gas.CH4}, C2H6:${gas.C2H6}, C2H4:${gas.C2H4}, C2H2:${gas.C2H2}, CO:${gas.CO}, CO2:${gas.CO2}`;
   };
 
+  /**
+   * Kiểm tra ngưỡng khí (Screening)
+   */
+  const checkThreshold = (gas: GasData): boolean => {
+    return (
+        gas.H2 > 50 || 
+        gas.CH4 > 30 || 
+        gas.C2H6 > 20 || 
+        gas.C2H4 > 60 || 
+        gas.C2H2 > 0 || 
+        gas.CO > 400 || 
+        gas.CO2 > 3800
+    );
+  };
+
   const handleDiagnose = async () => {
     if (activeTab === 'gemini' && isGuest) return;
+
+    // Bổ sung Popup thông báo nếu không vi phạm điều kiện đầu tiên (Chỉ áp dụng tab Mô hình đề xuất)
+    if (activeTab === 'proposed' && !checkThreshold(gasData)) {
+      const alertMsg = lang === 'vi' 
+        ? "Không có khí nào vi phạm điều kiện đầu tiên: H2>50, CH4>30, C2H6 >20, C2H4>60, C2H2 >0, CO>400, CO2 >3800"
+        : "No gases violate the initial condition: H2>50, CH4>30, C2H6 >20, C2H4>60, C2H2 >0, CO>400, CO2 >3800";
+      window.alert(alertMsg);
+    }
 
     setLoading(true);
     setError(null);
@@ -142,9 +165,11 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
         setResult(mockDiagnosis);
         addLog(user, role, t.actionProposed, `(DEMO FASTTREE) ${gasInfo}. Output: ${mockDiagnosis.faultType}`);
     } else {
+        // Cập nhật giả lập GBDT khớp với thứ tự nhãn mới: DT, D1, D2, N, PD, T1, T2, T3
         const mockResponse = {
-            ket_qua_loi: "D2", do_tin_cay: "98.94%",
-            chi_tiet_xac_suat: [0.0002, 0.0003, 0.0036, 0.0001, 0.9893, 0.0037, 0.0005, 0.0019]
+            ket_qua_loi: "DT", 
+            do_tin_cay: "99.4238%",
+            chi_tiet_xac_suat: [0.9942, 0.0003, 0.0036, 0.0001, 0.0002, 0.0010, 0.0005, 0.0001]
         };
         const mockDiagnosis = mapApiResponseToDiagnosis(mockResponse, lang);
         setResult(mockDiagnosis);
