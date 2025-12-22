@@ -179,7 +179,38 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({ result, gasData, lang, ac
           )}
         </div>
       )}
+      
+      // Đường dẫn hình ảnh cục bộ (Xử lý khoảng trắng bằng %20)
+      const ieeeImagePath = "images/IEEE%20Std%20C57.104-2019.png";
 
+      {/* IEEE Reference - NOW ABOVE BOTH CHARTS */}
+      <div className="bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-700 shadow-lg flex flex-col w-full">
+        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            IEEE Std C57.104-2019: Relative percentage of dissolved gas concentrations
+        </h4>
+        <div className="bg-slate-900 rounded-xl p-4 border border-slate-700/50 flex justify-center">
+            <img 
+                //src={ieeeImagePath} 
+                alt="IEEE Std C57.104-2019 Fault Pattern" 
+                className="max-w-full h-auto rounded-lg brightness-90 hover:brightness-100 transition-all cursor-zoom-in shadow-inner"
+                title="Click to enlarge"
+                //onClick={() => window.open(ieeeImagePath.replace(/%20/g, ' '), "_blank")}
+                onError={(e) => {
+                  console.error("Failed to load local image, falling back to CDN");
+                  (e.target as HTMLImageElement).src = "https://static.wixstatic.com/media/5056cb_00ade90b808f416cbebc684876936775~mv2.png/v1/fill/w_980,h_537,al_c,q_90,usm_0.66_1.00_0.01,enc_avif,quality_auto/5056cb_00ade90b808f416cbebc684876936775~mv2.png";
+                }}
+            />
+        </div>
+        <p className="text-[10px] text-slate-500 mt-3 text-center italic">
+            {lang === 'vi' 
+            ? "Tỷ lệ phần trăm nồng độ khí hòa tan tương ứng với nhiệt độ và loại lỗi (Tham khảo IEEE C57.104-2019)" 
+            : "Relative percentage of dissolved gas concentrations vs temperature and fault type (IEEE C57.104-2019 Reference)"}
+        </p>
+      </div>
+      
       {/* Basic Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-700 shadow-lg h-96 flex flex-col">
