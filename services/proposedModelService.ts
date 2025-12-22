@@ -116,6 +116,52 @@ export const diagnoseWithProposedModel = async (
   }
 };
 
+/**
+ * Kiểm tra xem các khí có vượt ngưỡng cảnh báo sớm hay không.
+ * Ngưỡng: H2>50, CH4>30, C2H6>20, C2H4>60, C2H2>0, CO>400, CO2>3800
+ */
+const isAboveThreshold = (gas: GasData): boolean => {
+    return (
+        gas.H2 > 50 || 
+        gas.CH4 > 30 || 
+        gas.C2H6 > 20 || 
+        gas.C2H4 > 60 || 
+        gas.C2H2 > 0 || 
+        gas.CO > 400 || 
+        gas.CO2 > 3800
+    );
+};
+
+export const diagnoseWithProposedModel = async (
+  gasData: GasData, 
+  lang: Language,
+  modelType: ModelType = 'gbdt'
+): Promise<DiagnosisResult> => {
+  
+  // Bước đầu tiên: Kiểm tra ngưỡng khí (Screening)
+  if (!isAboveThreshold(gasData)) {
+    return {
+      faultType: lang === 'vi' ? "Bình thường" : "Normal",
+      confidence: "High",
+      severity: "Normal",
+      description: lang === 'vi' 
+        ? "Kết luận: Máy biến áp bình thường, tình trạng tốt. Tất cả nồng độ khí hòa tan (DGA) đều nằm dưới ngưỡng cảnh báo sớm."
+        : "Conclusion: Transformer is normal and in good condition. All DGA gas concentrations are below early warning thresholds.",
+      recommendation: lang === 'vi'
+        ? "Tiếp tục vận hành và thực hiện theo dõi nồng độ khí định kỳ theo quy trình bảo dưỡng."
+        : "Continue normal operation and perform periodic gas analysis according to maintenance procedures.",
+      keyGasRatios: []
+    };
+  }
+
+  // Nếu vượt ngưỡng, thực hiện dự đoán bằng mô hình học máy
+  if (modelType === 'fasttree') {
+    return diagnoseWithFastTree(gasData, lang);
+  } else {
+    return diagnoseWithGBDT(gasData, lang);
+  }
+};
+
 const diagnoseWithGBDT = async (gasData: GasData, lang: Language): Promise<DiagnosisResult> => {
   const API_URL = "https://vutrhuy81-dga-prediction-api.hf.space/predict";
   
@@ -219,7 +265,7 @@ export const mapGBDTResponseToDiagnosis = (data: FastApiResponse, lang: Language
     if (Array.isArray(data.chi_tiet_xac_suat) && data.chi_tiet_xac_suat.length === MODEL_LABELS_ORDER.length) {
         probs = data.chi_tiet_xac_suat
             .map((p, index) => ({ label: MODEL_LABELS_ORDER[index], val: p * 100 }))
-            .filter(item => item.val > 1) 
+            .filter(item => item.val > 0.01) 
             .sort((a, b) => b.val - a.val) 
             .map(item => `${item.label}: ${item.val.toFixed(1)}%`)
             .join(", ");
