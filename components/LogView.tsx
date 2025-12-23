@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Language, LogEntry } from '../types';
 import { translations } from '../constants/translations';
@@ -10,23 +9,42 @@ interface LogViewProps {
 
 const LogView: React.FC<LogViewProps> = ({ lang }) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [loading, setLoading] = useState<boolean>(true); // Thêm trạng thái loading
   const t = translations[lang];
 
+  // --- SỬA LỖI 1: Gọi hàm async đúng cách ---
+  const fetchLogsData = async () => {
+    setLoading(true);
+    try {
+      const data = await getLogs();
+      setLogs(data);
+    } catch (error) {
+      console.error("Failed to load logs", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setLogs(getLogs());
+    fetchLogsData();
   }, []);
 
-  const handleClear = () => {
+  const handleClear = async () => {
     if (window.confirm(lang === 'vi' ? 'Bạn có chắc chắn muốn xóa toàn bộ nhật ký?' : 'Are you sure you want to clear all logs?')) {
-      clearLogs();
-      setLogs([]);
+      await clearLogs();
+      // Sau khi xóa trên server, cập nhật lại state rỗng
+      setLogs([]); 
     }
+  };
+  
+  // Hàm refresh thủ công
+  const handleRefresh = () => {
+      fetchLogsData();
   };
 
   const handleExportExcel = () => {
     if (logs.length === 0) return;
 
-    // Use BOM for Excel to open UTF-8 correctly
     const BOM = "\uFEFF";
     const headers = [t.logTime, t.logUser, "Role", t.logAction, t.logDetails];
     
@@ -53,6 +71,7 @@ const LogView: React.FC<LogViewProps> = ({ lang }) => {
   };
 
   const getActionColor = (action: string) => {
+    if (!action) return "text-slate-400";
     if (action.includes(t.actionLogin)) return "text-blue-400";
     if (action.includes(t.actionGemini)) return "text-indigo-400";
     if (action.includes(t.actionProposed)) return "text-emerald-400";
@@ -64,12 +83,21 @@ const LogView: React.FC<LogViewProps> = ({ lang }) => {
   return (
     <div className="flex flex-col gap-6 animate-fade-in-up">
       <div className="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md">
-        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-           </svg>
-           {t.logsTab} ({logs.length})
-        </h3>
+        <div className="flex items-center gap-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+            </svg>
+            {t.logsTab} ({logs.length})
+            </h3>
+            {/* Nút Refresh */}
+            <button onClick={handleRefresh} title="Làm mới" className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition">
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
+        </div>
+        
         <div className="flex gap-2">
           {logs.length > 0 && (
             <>
@@ -97,7 +125,11 @@ const LogView: React.FC<LogViewProps> = ({ lang }) => {
       </div>
 
       <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl overflow-hidden">
-        {logs.length === 0 ? (
+        {loading ? (
+            <div className="p-12 text-center text-slate-400">
+                <p>Đang tải dữ liệu...</p>
+            </div>
+        ) : logs.length === 0 ? (
           <div className="p-12 text-center text-slate-500 italic">
             {t.logNoData}
           </div>
@@ -113,8 +145,9 @@ const LogView: React.FC<LogViewProps> = ({ lang }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
-                {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-700/30 transition-colors">
+                {logs.map((log, index) => (
+                  // SỬA LỖI 2: Dùng log.id (đã map từ _id) hoặc index làm fallback
+                  <tr key={log.id || index} className="hover:bg-slate-700/30 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-xs font-mono text-slate-500">{log.timestamp}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                        <div className="flex flex-col">
