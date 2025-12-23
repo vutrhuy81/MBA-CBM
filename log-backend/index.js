@@ -142,4 +142,22 @@ app.delete('/api/users/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
+// API KHẨN CẤP: Dùng để tạo lại admin nếu lỡ tay xóa hoặc quên pass
+// Sau khi dùng xong nhớ xóa đoạn code này đi nhé!
+app.get('/api/emergency-reset-admin', async (req, res) => {
+    try {
+        await UserModel.deleteOne({ username: 'admin' }); // Xóa cũ
+        const newAdmin = new UserModel({
+            username: 'admin',
+            password: '123456',
+            role: 'Admin'
+        });
+        await newAdmin.save(); // Tạo mới
+        res.send("✅ Đã reset tài khoản admin thành công! Pass: 123456");
+    } catch (e) {
+        res.status(500).send("Lỗi: " + e.message);
+    }
+});
+
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
