@@ -75,7 +75,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           </button>
           
           <p className="text-xs text-center text-slate-500 mt-4">
-              *Mặc định lần đầu: admin / 123456
+              © 2025 Power Transformer Diagnostics System by Vu Tran Huy
           </p>
         </form>
       </div>
