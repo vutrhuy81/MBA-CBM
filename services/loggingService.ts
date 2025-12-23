@@ -44,3 +44,15 @@ export const getLogs = async (): Promise<LogEntry[]> => {
     return [];
   }
 };
+
+// --- BỔ SUNG HÀM NÀY ĐỂ SỬA LỖI BUILD ---
+export const clearLogs = async () => {
+  try {
+    // Gửi lệnh DELETE lên server (Bạn cần bổ sung API delete ở backend sau nếu muốn chức năng này hoạt động thật)
+    await fetch(API_URL, {
+      method: "DELETE",
+    });
+  } catch (error) {
+    console.error("Failed to clear logs:", error);
+  }
+};
