@@ -1,34 +1,46 @@
+// Thay dòng này bằng link domain Backend bạn lấy ở Phần 3
+// Lưu ý: Phải có /api/logs ở cuối
+const API_URL = "https://log-backend-xxxx.coolify.yourdomain.com/api/logs";
 
-import { LogEntry } from "../types";
+export interface LogEntry {
+  _id?: string;
+  user: string;
+  role: string;
+  action: string;
+  details: string;
+  timestamp: string;
+}
 
-const LOG_STORAGE_KEY = "dga_app_logs";
-
-export const addLog = (user: string, role: string, action: string, details: string) => {
-  const logs = getLogs();
-  const newLog: LogEntry = {
-    id: Date.now().toString(),
-    user,
-    role,
-    action,
-    details,
-    timestamp: new Date().toLocaleString('vi-VN'),
-  };
-  
-  // Keep only the last 1000 logs to prevent storage issues
-  const updatedLogs = [newLog, ...logs].slice(0, 1000);
-  localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(updatedLogs));
-};
-
-export const getLogs = (): LogEntry[] => {
-  const stored = localStorage.getItem(LOG_STORAGE_KEY);
-  if (!stored) return [];
+export const addLog = async (user: string, role: string, action: string, details: string) => {
   try {
-    return JSON.parse(stored);
-  } catch (e) {
-    return [];
+    const logData = { user, role, action, details };
+    
+    // Gửi data sang Backend
+    await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(logData),
+    });
+    // console.log("Log sent to DB");
+  } catch (error) {
+    console.error("Failed to save log:", error);
   }
 };
 
-export const clearLogs = () => {
-  localStorage.removeItem(LOG_STORAGE_KEY);
+export const getLogs = async (): Promise<LogEntry[]> => {
+  try {
+    const res = await fetch(API_URL);
+    if (!res.ok) throw new Error("Network response was not ok");
+    
+    const data = await res.json();
+    
+    // Format lại dữ liệu cho đẹp
+    return data.map((item: any) => ({
+      ...item,
+      timestamp: new Date(item.timestamp).toLocaleString('vi-VN')
+    }));
+  } catch (error) {
+    console.error("Error fetching logs:", error);
+    return [];
+  }
 };
