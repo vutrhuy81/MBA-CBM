@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GasData, DiagnosisResult, Language, ModelType, HealthIndexResult, TabType } from './types';
 import GasInput from './components/GasInput';
@@ -6,6 +5,7 @@ import DiagnosisView from './components/DiagnosisView';
 import HealthIndexView from './components/HealthIndexView';
 import ManualView from './components/ManualView';
 import LogView from './components/LogView';
+import UserManagementView from './components/UserManagementView'; // <--- 1. IMPORT MỚI
 import { diagnoseTransformer } from './services/geminiService';
 import { diagnoseWithProposedModel, mapApiResponseToDiagnosis, mapFastTreeResponseToDiagnosis } from './services/proposedModelService';
 import { calculateHealthIndex } from './services/healthIndexService';
@@ -32,6 +32,8 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
   const isGuest = role === 'Guest';
   const isAdmin = role === 'Admin';
   
+  // Lưu ý: Hãy chắc chắn bạn đã thêm 'users' vào type TabType trong file types.ts
+  // export type TabType = 'gemini' | 'proposed' | 'health' | 'manual' | 'logs' | 'users';
   const [activeTab, setActiveTab] = useState<TabType>(isGuest ? 'proposed' : 'gemini');
   const [lang, setLang] = useState<Language>('vi'); 
   const [selectedModel, setSelectedModel] = useState<ModelType>('gbdt');
@@ -58,8 +60,9 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
   const t = translations[lang];
 
   useEffect(() => {
-    // RBAC: Redirect guests away from restricted tabs
-    if (isGuest && (activeTab === 'gemini' || activeTab === 'logs')) {
+    // RBAC: Chặn Guest truy cập các tab cấm (bao gồm users)
+    // <--- 2. CẬP NHẬT LOGIC BẢO MẬT
+    if (isGuest && (activeTab === 'gemini' || activeTab === 'logs' || activeTab === 'users')) {
         setActiveTab('proposed');
     }
   }, [isGuest, activeTab]);
@@ -101,7 +104,6 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
   const handleDiagnose = async () => {
     if (activeTab === 'gemini' && isGuest) return;
 
-    // Bổ sung Popup thông báo nếu không vi phạm điều kiện đầu tiên (Chỉ áp dụng tab Mô hình đề xuất)
     if (activeTab === 'proposed' && !checkThreshold(gasData)) {
       const alertMsg = lang === 'vi' 
         ? "Không có khí nào vi phạm điều kiện đầu tiên: H2>50, CH4>30, C2H6 >20, C2H4>60, C2H2 >0, CO>400, CO2 >3800"
@@ -165,7 +167,6 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
         setResult(mockDiagnosis);
         addLog(user, role, t.actionProposed, `(DEMO FASTTREE) ${gasInfo}. Output: ${mockDiagnosis.faultType}`);
     } else {
-        // Cập nhật giả lập GBDT khớp với thứ tự nhãn mới: DT, D1, D2, N, PD, T1, T2, T3
         const mockResponse = {
             ket_qua_loi: "DT", 
             do_tin_cay: "99.4238%",
@@ -208,6 +209,11 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
           case 'health': return { title: t.introHealth, desc: t.introHealthDesc };
           case 'manual': return { title: t.introManual, desc: t.introManualDesc };
           case 'logs': return { title: t.introLogs, desc: t.introLogsDesc };
+          // <--- 3. THÊM INTRO CHO TAB USERS
+          case 'users': return { 
+              title: lang === 'vi' ? 'Quản trị Người dùng' : 'User Management', 
+              desc: lang === 'vi' ? 'Thêm, sửa, xóa và phân quyền người dùng hệ thống (Admin Only).' : 'Manage system users and roles.'
+          };
           default: return { title: '', desc: '' };
       }
   };
@@ -252,8 +258,15 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
                 <button onClick={() => setActiveTab('proposed')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'proposed' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>{t.proposedTab}</button>
                 <button onClick={() => setActiveTab('health')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'health' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>{t.healthIndexTab}</button>
                 <button onClick={() => setActiveTab('manual')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'manual' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>{t.manualTab}</button>
+                
                 {isAdmin && (
-                  <button onClick={() => setActiveTab('logs')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'logs' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>{t.logsTab}</button>
+                  <>
+                    <button onClick={() => setActiveTab('logs')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'logs' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>{t.logsTab}</button>
+                    {/* <--- 4. THÊM NÚT QUẢN TRỊ USER */}
+                    <button onClick={() => setActiveTab('users')} className={`px-3 py-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all ${activeTab === 'users' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>
+                        {lang === 'vi' ? 'Q.Trị User' : 'Users'}
+                    </button>
+                  </>
                 )}
             </div>
             <button 
@@ -276,12 +289,16 @@ const MainPage: React.FC<MainPageProps> = ({ user, role, onLogout }) => {
             <p className="text-slate-400">{intro.desc}</p>
           </div>
 
+          {/* <--- 5. RENDER USER MANAGEMENT VIEW */}
           {activeTab === 'manual' ? (
               <ManualView lang={lang} />
           ) : activeTab === 'logs' ? (
               <LogView lang={lang} />
+          ) : activeTab === 'users' ? (
+              <UserManagementView />
           ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Phần Grid cũ giữ nguyên */}
                 <div className="lg:col-span-4">
                   {activeTab === 'gemini' && isGuest ? (
                       <div className="bg-red-500/10 border border-red-500/50 p-6 rounded-2xl text-center">
