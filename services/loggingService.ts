@@ -1,6 +1,6 @@
 // Thay dòng này bằng link domain Backend bạn lấy ở Phần 3
 // Lưu ý: Phải có /api/logs ở cuối
-const API_URL = "https://log-backend-xxxx.coolify.yourdomain.com/api/logs";
+const API_URL = "https://api-log.coolify.powertransformer.vn/api/logs";
 
 export interface LogEntry {
   _id?: string;
